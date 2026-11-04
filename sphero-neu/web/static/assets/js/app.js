@@ -225,18 +225,24 @@ const DEFAULT_PROGRAMS = [
   { id: "tictactoe", title: "Tic-Tac-Toe", description: "9 robots arranged in a 3x3 floor grid with live numbering, alternating X and O, and winning line.", moves: false, kind: "game" },
 ];
 
+let connectedTarget = null;
+let bleDevice = null;
+let bleApiChar = null;
+let bleSeq = 0;
+
 function renderStatus() {
   const pill = $("status"), text = $("status-text");
   if (!pill || !text) return;
-  pill.className = "pill" + (!online ? " offline" : state.running ? " running" : " online");
-  if (!online) {
-    text.textContent = "Server offline";
+  const isConn = online && (connectedTarget || (ws && ws.readyState === WebSocket.OPEN));
+  pill.className = "pill" + (!isConn ? " offline" : state.running ? " running" : " online");
+  if (!isConn) {
+    text.textContent = "Offline";
   } else if (state.running) {
     const p = programs.find((x) => x.id === state.running) || DEFAULT_PROGRAMS.find((x) => x.id === state.running);
     const secs = Math.round(Date.now() / 1000 - state.started);
     text.textContent = `Running: ${p ? p.title : state.running} (${secs}s)`;
   } else {
-    text.textContent = clientMode ? "Simulation Ready" : "System Idle";
+    text.textContent = connectedTarget ? `Connected: ${connectedTarget}` : "Connected";
   }
   if ($("global-stop")) $("global-stop").disabled = !state.running;
 }
@@ -343,11 +349,13 @@ function dispatchDrive(heading, speedPercent) {
     }
   }
 
-  // 2. Throttled WebSocket dispatch (20 Hz)
+  // 2. Throttled dispatch (20 Hz) or immediate stop
   const now = Date.now();
-  if (now - lastJoystickSend > 50) {
+  if (now - lastJoystickSend > 50 || speedPercent === 0) {
     lastJoystickSend = now;
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (bleApiChar) {
+      bleDrive(speedPercent, heading);
+    } else if (ws && ws.readyState === WebSocket.OPEN) {
       const spheroSpeed = (speedPercent / 100) * 255;
       ws.send(JSON.stringify({
         type: "joystick",
@@ -701,12 +709,9 @@ function initClientRobots(count = 3) {
 
 function enableClientMode(reason) {
   clientMode = true;
-  online = true;
-  const pill = $("status"), text = $("status-text");
-  if (pill) pill.className = "pill sim";
-  if (text) text.textContent = reason || "Simulation Ready";
-  addLine(`=== ${reason || "Browser Simulation Active"} ===`);
-  addLine("Zero-backend mode active. All shows, party games and joystick drive run directly in your browser!");
+  if (!connectedTarget) {
+    online = false;
+  }
   renderStatus();
   initClientRobots(3);
 }
@@ -716,6 +721,9 @@ function clientStop(resetState = true) {
     clearInterval(clientLoopId);
     cancelAnimationFrame(clientLoopId);
     clientLoopId = null;
+  }
+  if (bleApiChar) {
+    bleDrive(0, 0);
   }
   clientSimState = {};
   if (resetState) {
@@ -741,6 +749,9 @@ if ($("global-stop")) $("global-stop").onclick = () => {
 };
 
 function startProgram(id) {
+  if (!online && !connectedTarget) {
+    addLine("[NOTICE] Currently offline. Tap 'Connect' in the header to pair your Sphero BOLT via Bluetooth!");
+  }
   if (clientMode) {
     clientStart(id);
     return;
@@ -1786,6 +1797,216 @@ async function changeLetters(body) {
 }
 if ($("heading")) $("heading").onchange = (e) => changeLetters({ heading: Number(e.target.value) });
 
+// ==========================================
+// 10. Web Bluetooth API Driver & Server Setup
+// ==========================================
+const BLE_SERVICES = {
+  antiDosService: "00020001-574f-4f20-5370-6865726f2121",
+  antiDosChar:    "00020005-574f-4f20-5370-6865726f2121",
+  apiService:     "00010001-574f-4f20-5370-6865726f2121",
+  apiChar:        "00010002-574f-4f20-5370-6865726f2121"
+};
+
+function buildSpheroPacket(did, cid, data = [], proc = 2) {
+  const flags = 0x3a;
+  const tid = 0x12;
+  const sid = 0x01;
+  const seq = (bleSeq++) % 255;
+  const payload = [flags, tid, sid, did, cid, seq, ...data];
+  let sum = 0;
+  for (const b of payload) sum += b;
+  const chk = (0xff - (sum & 0xff)) & 0xff;
+
+  const escaped = [0x8d];
+  for (const b of [...payload, chk]) {
+    if (b === 0xab) escaped.push(0xab, 0x23);
+    else if (b === 0x8d) escaped.push(0xab, 0x05);
+    else if (b === 0xd8) escaped.push(0xab, 0x50);
+    else escaped.push(b);
+  }
+  escaped.push(0xd8);
+  return new Uint8Array(escaped);
+}
+
+async function bleSendPacket(packet) {
+  if (!bleApiChar) return;
+  try {
+    await bleApiChar.writeValueWithoutResponse(packet);
+  } catch (err) {
+    try {
+      await bleApiChar.writeValue(packet);
+    } catch (e) {
+      console.warn("BLE packet write note:", e);
+    }
+  }
+}
+
+async function bleDrive(speed, heading) {
+  const h = Math.round(heading) % 360;
+  const s = Math.min(255, Math.max(0, Math.round(speed * 2.55)));
+  const packet = buildSpheroPacket(0x16, 0x07, [s, (h >> 8) & 0xff, h & 0xff, 0]);
+  await bleSendPacket(packet);
+}
+
+async function bleSetMainColor(r, g, b) {
+  const packet = buildSpheroPacket(0x1a, 0x1c, [0x07, r, g, b]);
+  await bleSendPacket(packet);
+}
+
+async function bleSetMatrixLetter(char, r = 0, g = 200, b = 255) {
+  const packet = buildSpheroPacket(0x1a, 0x42, [r, g, b, char.charCodeAt(0)]);
+  await bleSendPacket(packet);
+}
+
+async function bleSetMatrixColor(r, g, b) {
+  const packet = buildSpheroPacket(0x1a, 0x2f, [r, g, b]);
+  await bleSendPacket(packet);
+}
+
+async function connectWebBluetooth() {
+  if (!navigator.bluetooth) {
+    alert(
+      "Web Bluetooth is not supported in this browser!\n\n" +
+      "• On Android: Open this page in Google Chrome or Microsoft Edge.\n" +
+      "• On iPhone / iPad: Apple blocks Web Bluetooth in Safari. Install the free 'Bluefy' or 'WebBLE' browser from the App Store and open this website there!\n\n" +
+      "Alternatively, enter your Arch Linux laptop IP below to connect over Wi-Fi."
+    );
+    return;
+  }
+
+  addLine("Scanning for Sphero BOLT over Bluetooth...");
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "SB-" }],
+      optionalServices: [
+        BLE_SERVICES.antiDosService,
+        BLE_SERVICES.apiService
+      ]
+    });
+
+    addLine(`Found ${bleDevice.name}. Connecting GATT...`);
+    const server = await bleDevice.gatt.connect();
+
+    try {
+      const antiDosService = await server.getPrimaryService(BLE_SERVICES.antiDosService);
+      const antiDosChar = await antiDosService.getCharacteristic(BLE_SERVICES.antiDosChar);
+      const enc = new TextEncoder();
+      await antiDosChar.writeValue(enc.encode("usetheforce...band"));
+    } catch (dosErr) {
+      console.warn("Handshake note:", dosErr);
+    }
+
+    const apiService = await server.getPrimaryService(BLE_SERVICES.apiService);
+    bleApiChar = await apiService.getCharacteristic(BLE_SERVICES.apiChar);
+
+    online = true;
+    connectedTarget = bleDevice.name;
+    renderStatus();
+    closeBluetoothModal();
+    playVictory();
+    addLine(`=== Connected to ${bleDevice.name} via Phone Bluetooth! ===`);
+    addLine("Ready! Use the Virtual Joystick or launch any game to control your robot.");
+
+    await bleSetMainColor(0, 255, 0);
+    await bleSetMatrixColor(0, 255, 0);
+
+    bleDevice.addEventListener("gattserverdisconnected", () => {
+      online = false;
+      connectedTarget = null;
+      bleApiChar = null;
+      renderStatus();
+      addLine(`[DISCONNECTED] Lost connection to ${bleDevice.name}`);
+    });
+  } catch (err) {
+    if (err.name !== "NotFoundError") {
+      addLine(`Bluetooth connection error: ${err.message || err}`);
+    }
+  }
+}
+
+function openBluetoothModal() {
+  const modal = $("modal-bluetooth");
+  if (modal) modal.hidden = false;
+}
+
+function closeBluetoothModal() {
+  const modal = $("modal-bluetooth");
+  if (modal) modal.hidden = true;
+}
+
+if ($("btn-bluetooth")) $("btn-bluetooth").onclick = openBluetoothModal;
+if ($("status")) {
+  $("status").onclick = () => {
+    if (!online) openBluetoothModal();
+  };
+}
+if ($("modal-close-btn")) $("modal-close-btn").onclick = closeBluetoothModal;
+if ($("modal-bluetooth")) {
+  $("modal-bluetooth").onclick = (e) => {
+    if (e.target === $("modal-bluetooth")) closeBluetoothModal();
+  };
+}
+if ($("btn-scan-ble")) $("btn-scan-ble").onclick = connectWebBluetooth;
+
+function connectCustomServer(hostUrl) {
+  let target = hostUrl.trim().replace(/^https?:\/\//, "").replace(/^wss?:\/\//, "").replace(/\/+$/, "").replace(/\/ws$/, "");
+  if (!target) return;
+  const wsUrl = `ws://${target}/ws`;
+  addLine(`Connecting to Arch server at ${wsUrl}...`);
+  if (ws) {
+    try { ws.close(); } catch (e) {}
+  }
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      online = true;
+      connectedTarget = `Arch (${target})`;
+      renderStatus();
+      closeBluetoothModal();
+      playVictory();
+      addLine(`=== Connected to Arch Linux server: ${target} ===`);
+    };
+    ws.onerror = () => {
+      alert(`Could not connect to ${wsUrl}. Make sure python server is running with --host 0.0.0.0 and your phone is on the same Wi-Fi!`);
+      addLine(`Connection to ${wsUrl} failed.`);
+    };
+    ws.onclose = () => {
+      online = false;
+      connectedTarget = null;
+      renderStatus();
+    };
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "status") {
+        state = msg;
+        renderStatus();
+      } else if (msg.type === "log") {
+        addLine(msg.line);
+      } else if (msg.type === "letters") {
+        letterCfg = msg.config;
+        renderLetters();
+      } else if (msg.type === "game") {
+        gameState = msg.state;
+        renderGame();
+        renderParty();
+      } else if (msg.type === "telemetry") {
+        updateTelemetry(msg.data);
+      }
+    };
+  } catch (err) {
+    alert(`Invalid server address: ${err.message || err}`);
+  }
+}
+
+if ($("btn-connect-server")) {
+  $("btn-connect-server").onclick = () => {
+    const input = $("input-server-url");
+    if (input && input.value.trim()) {
+      connectCustomServer(input.value.trim());
+    }
+  };
+}
+
 // Connect to backend WebSocket or enable client mode
 let wsRetry = 0;
 function connect() {
@@ -1795,7 +2016,7 @@ function connect() {
     (location.hostname === "localhost" && location.port === "");
 
   if (isStatic) {
-    enableClientMode("Static Web Hosting (GitHub Pages / Vercel)");
+    enableClientMode();
     return;
   }
 
@@ -1803,21 +2024,24 @@ function connect() {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
     ws.onopen = () => {
       online = true;
+      connectedTarget = "Arch Server";
       wsRetry = 0;
       renderStatus();
+      addLine("=== Connected to Arch Linux server ===");
     };
     ws.onclose = () => {
       online = false;
+      connectedTarget = null;
       wsRetry++;
       renderStatus();
       if (wsRetry > 2) {
-        enableClientMode("Backend offline. Browser Simulation Active");
+        enableClientMode();
       } else {
         setTimeout(connect, 1500);
       }
     };
     ws.onerror = () => {
-      if (wsRetry > 1) enableClientMode("Browser Simulation Active");
+      if (wsRetry > 1) enableClientMode();
     };
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -1841,7 +2065,7 @@ function connect() {
       }
     };
   } catch (e) {
-    enableClientMode("Browser Simulation Active");
+    enableClientMode();
   }
 }
 

@@ -16,7 +16,11 @@
     </div>
 
     <div class="header-actions">
-      <span id="status" class="pill"><span class="dot"></span><span id="status-text">Connecting...</span></span>
+      <span id="status" class="pill offline" title="Click to connect"><span class="dot"></span><span id="status-text">Offline</span></span>
+      <button id="btn-bluetooth" class="sm primary" style="background:#1f6feb; border-color:#388bfd;" title="Connect Bluetooth">
+        <svg class="icon" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+        <span>Connect</span>
+      </button>
       <button id="sound-toggle" class="sm" title="Toggle Sound">
         <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
         <span>Sound ON</span>
@@ -386,6 +390,67 @@
 
     <div id="log" class="console-box"></div>
   </section>
+
+  <!-- ==================== BLUETOOTH PREPARATION & CONNECT MODAL ==================== -->
+  <div id="modal-bluetooth" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+          Bluetooth Setup & Preparation
+        </h3>
+        <button id="modal-close-btn" class="modal-close" title="Close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="setup-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>Turn On Bluetooth on your Phone</h4>
+            <p>Swipe down for Quick Settings (or open Settings) and make sure Bluetooth is toggled <b>ON</b>.</p>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>Wake Your Sphero BOLT</h4>
+            <p>Give your Sphero BOLT a quick shake or place it on the floor. Its 8x8 LED matrix will light up with its ID.</p>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>Pair & Connect</h4>
+            <p>Connect directly from your smartphone browser, or connect to your Arch Linux laptop server.</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btn-scan-ble" class="btn-connect-ble">
+            <svg class="icon" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+            <span>Scan & Pair Sphero via Bluetooth</span>
+          </button>
+
+          <div style="text-align:center; color:var(--muted); font-size:0.8rem; margin:4px 0;">— OR CONNECT TO ARCH LINUX LAPTOP —</div>
+
+          <div class="server-connect-row">
+            <input type="text" id="input-server-url" placeholder="e.g. 192.168.1.150:8080" />
+            <button id="btn-connect-server" class="sm">Connect Server</button>
+          </div>
+        </div>
+
+        <div id="ble-status-message" style="font-size:0.82rem; color:var(--muted); line-height:1.4;">
+          <p style="margin:0 0 6px;"><b>Mobile Compatibility:</b></p>
+          <ul style="margin:0; padding-left:18px;">
+            <li><b>Android:</b> Google Chrome or Microsoft Edge (works natively via Web Bluetooth).</li>
+            <li><b>iPhone / iPad (iOS):</b> Safari blocks Web Bluetooth. Open this website in the free <b>Bluefy</b> or <b>WebBLE</b> app from the App Store, or connect to your Arch Linux server above!</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </main>
 
