@@ -153,6 +153,16 @@ def run_stdin(drivers, keymaps):
                     latest["pressed"] = codes & ALL_KEYS
                     latest["turbo"] = len(parts) > 2 and parts[2] == "1"
                     latest["time"] = time.monotonic()
+            elif len(parts) >= 4 and parts[0] == "drive":
+                # drive <bot_idx_1_based> <heading_deg> <speed_0_to_255>
+                try:
+                    bot_idx = int(parts[1]) - 1
+                    h = float(parts[2]) % 360
+                    s = max(0.0, min(255.0, float(parts[3])))
+                    if bot_idx in drivers:
+                        drivers[bot_idx].wanted = (h, s)
+                except ValueError:
+                    pass
         latest["eof"] = True
 
     threading.Thread(target=reader, daemon=True).start()
@@ -180,8 +190,9 @@ def main():
 
     with contextlib.ExitStack() as stack:
         apis, toys = {}, {}
+        discovered = bolt_dance.get_robots(max(robots) + 1)
         for i in robots:
-            name = bolt_dance.ROBOTS[i][0]
+            name = discovered[i][0]
             print(f"Connecting robot {i + 1}: {name}...", flush=True)
             try:
                 toys[i], apis[i] = sphero_ble.connect_toy(
@@ -190,7 +201,7 @@ def main():
                 raise SystemExit(str(e))
 
         bolt_dance.aim([apis[i] for i in robots], [toys[i] for i in robots],
-                       [bolt_dance.ROBOTS[i][1] for i in robots])
+                       [discovered[i][1] for i in robots])
 
         stop = threading.Event()
         drivers = {i: Driven(apis[i], stop) for i in robots}

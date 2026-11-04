@@ -33,11 +33,21 @@ import formation
 import indicators
 import sphero_ble
 
-# Robots, left to right. Name, own color.
+DEFAULT_COLORS = [
+    Color(255, 0, 0),     # 1: red
+    Color(0, 255, 0),     # 2: green
+    Color(0, 80, 255),    # 3: blue
+]
+
+def get_robots(count=3):
+    """Dynamically discovers BOLTs in range or picks available toys."""
+    names = sphero_ble.discover_bolts(count=count)
+    return [(name, DEFAULT_COLORS[i % len(DEFAULT_COLORS)]) for i, name in enumerate(names)]
+
 ROBOTS = [
-    ("SB-3FF5", Color(255, 0, 0)),     # 1: red
-    ("SB-034E", Color(0, 255, 0)),     # 2: green
-    ("SB-61A9", Color(0, 80, 255)),    # 3: blue
+    ("BOLT-1", DEFAULT_COLORS[0]),
+    ("BOLT-2", DEFAULT_COLORS[1]),
+    ("BOLT-3", DEFAULT_COLORS[2]),
 ]
 
 AIM_TIME = 10            # seconds to turn the robots by hand before the dance
@@ -249,9 +259,10 @@ def aim(apis, toys, colors=None):
         api.set_back_led(Color(0, 0, 255))
         indicators.show_front(api, toys[index], colors[index])
 
+    aim_time = 2 if sphero_ble.is_simulation() else AIM_TIME
     print(f"Aim: turn each robot so its blue tail light points at you "
-          f"(arrow and white front light point away). {AIM_TIME} seconds.")
-    for left in range(AIM_TIME, 0, -1):
+          f"(arrow and white front light point away). {aim_time} seconds.")
+    for left in range(aim_time, 0, -1):
         print(f"  {left}...", end="\r", flush=True)
         time.sleep(1)
     print()
@@ -264,10 +275,11 @@ def aim(apis, toys, colors=None):
 
 
 def main():
+    robots = get_robots(3)
     with contextlib.ExitStack() as stack:
         apis = []
         toys = []
-        for index, (name, _) in enumerate(ROBOTS):
+        for index, (name, _) in enumerate(robots):
             print(f"Connecting robot {index + 1}: {name}...")
             try:
                 toy, api = sphero_ble.connect_toy(
@@ -279,7 +291,7 @@ def main():
             toys.append(toy)
             apis.append(api)
 
-        aim(apis, toys)
+        aim(apis, toys, [c for _, c in robots])
 
         stop = threading.Event()
         tracker = formation.Tracker()
@@ -287,7 +299,7 @@ def main():
         t0 = time.monotonic() + 1.0          # shared start for everyone
         threads = []
         for index, (api, toy) in enumerate(zip(apis, toys)):
-            d = Dancer(api, toy, index, ROBOTS[index][1], t0, stop, tracker)
+            d = Dancer(api, toy, index, robots[index][1], t0, stop, tracker)
             th = threading.Thread(target=run_dancer, args=(d, errors), daemon=True)
             threads.append(th)
             th.start()

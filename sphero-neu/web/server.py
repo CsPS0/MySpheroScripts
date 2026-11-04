@@ -11,56 +11,51 @@ import contextlib
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT))
 import letters  # noqa: E402  (project module, shared with the robot programs)
 import sphero_ble  # noqa: E402
 import tictactoe  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent / "static"
-ROBOT_NAMES = ["SB-3FF5", "SB-034E", "SB-61A9"]
+STATIC = PROJECT_ROOT if (PROJECT_ROOT / "index.html").exists() else Path(__file__).resolve().parent / "static"
+ASSETS_DIR = PROJECT_ROOT / "assets" if (PROJECT_ROOT / "assets").exists() else STATIC / "assets"
+ROBOT_NAMES = ["BOLT-1", "BOLT-2", "BOLT-3"]
 
 PROGRAMS = {
     "dance": {
-        "title": "Dance",
+        "title": "Dance Show",
         "description": "Synchronized dance for all 3 robots: spins, circles, shuffle, "
                        "solos, follow the leader, back home, finale. About 85 s.",
         "args": ["bolt_dance.py"],
         "moves": True,
     },
-    "drive1": {
-        "title": "Drive 1 robot",
-        "description": "Drive SB-3FF5 with W A S D or the arrow keys. "
-                       "Shift for more speed. Only this robot is connected.",
+    "drive": {
+        "title": "Joystick Drive",
+        "description": "Smooth remote control driving with the virtual joystick! Zero lag, "
+                       "real-time heading & speed steering.",
         "args": ["drive_keys.py", "--stdin", "--robots", "1"],
         "moves": True,
-        "pads": [{"robot": "SB-3FF5", "color": "r1", "keys": "both"}],
-    },
-    "drive2": {
-        "title": "Drive 2 robots",
-        "description": "SB-3FF5 with W A S D, SB-61A9 with the arrow keys. "
-                       "Shift for more speed.",
-        "args": ["drive_keys.py", "--stdin", "--robots", "1,3"],
-        "moves": True,
-        "pads": [{"robot": "SB-3FF5", "color": "r1", "keys": "wasd"},
-                 {"robot": "SB-61A9", "color": "r3", "keys": "arrows"}],
+        "joystick": True,
     },
     "roam": {
-        "title": "Roam",
+        "title": "Autonomous Roam",
         "description": "All 3 robots wander around their own start spot "
                        "(25 cm circle) until you press Stop, then drive back home.",
         "args": ["roam.py", "--radius", "25"],
         "moves": True,
     },
     "neu": {
-        "title": "NEU",
+        "title": "NEU Formation",
         "description": "After aiming, the robots turn in place one by one and show "
                        "N, E, U with the tops of the letters pointing west (left). "
                        "Holds until Stop.",
@@ -70,74 +65,43 @@ PROGRAMS = {
     },
     "tictactoe": {
         "title": "Tic-tac-toe",
-        "description": "Connects the 9 nearest free BOLTs (or the names in Setup). They "
-                       "show 1 to 9: put them in a 3x3 grid. Shake a ball to take that "
-                       "square, X always starts. The robots never drive.",
+        "description": "Connects the 9 nearest free BOLTs. They show 1 to 9: put them in a "
+                       "3x3 grid. Shake a ball to take that square, X always starts.",
         "args": ["tictactoe.py"],
         "moves": False,
         "game": True,
     },
     "simon": {
         "title": "Simon Says",
-        "description": "2 to 9 balls, each in its own color. They light up in a sequence: "
-                       "shake them back in the same order. One more step each level.",
+        "description": "Balls light up in a sequence with musical tones: shake/tap them "
+                       "back in the same order. One more step each level.",
         "args": ["minigames.py", "simon"],
         "moves": False,
         "game": True,
     },
     "mole": {
         "title": "Whack-a-mole",
-        "description": "A random ball turns green: shake it before it goes dark. "
-                       "Wrong ball -1. 60 s rounds, the moles get faster.",
+        "description": "A random ball turns neon green: tap/shake it before it goes dark! "
+                       "60 s reflex challenge with fast pop sounds.",
         "args": ["minigames.py", "mole"],
         "moves": False,
         "game": True,
     },
     "potato": {
         "title": "Hot potato",
-        "description": "1 ball. Shake it to light the fuse and pass it around. It blinks "
-                       "faster, green to red, and explodes after a secret 15 to 35 s.",
+        "description": "1 ball. Shake/tap to light the fuse and pass it around! It blinks "
+                       "faster and faster, then EXPLODES with a loud boom & scream!",
         "args": ["minigames.py", "potato"],
         "moves": False,
         "game": True,
     },
     "rps": {
         "title": "Rock-paper-scissors",
-        "description": "2 balls, player 1 red, player 2 blue. Both shake, 3-2-1 countdown, "
-                       "then each ball shows rock, paper or scissors. First to 2 wins.",
+        "description": "2 balls (Red vs Blue). 3-2-1 countdown, then each ball reveals "
+                       "rock, paper or scissors on its matrix. First to 2 wins!",
         "args": ["minigames.py", "rps"],
         "moves": False,
         "game": True,
-    },
-    "lightshow": {
-        "title": "Light show",
-        "description": "Connects up to 15 balls. Shake them in order along your line, then "
-                       "synced effects run: rainbow, comet, breathing, police, sparkle, wave. "
-                       "Start skips to the next effect.",
-        "args": ["minigames.py", "lightshow"],
-        "moves": False,
-        "game": True,
-    },
-    "front": {
-        "title": "LED test",
-        "description": "Shows N, E, U on the matrices, white front light and blue "
-                       "tail light on all 3 robots. No movement.",
-        "args": ["front_test.py"],
-        "moves": False,
-        "letters": True,
-    },
-    "locator": {
-        "title": "Locator test",
-        "description": "One robot after another: short roll forward and right, "
-                       "then back home. Checks the position tracking.",
-        "args": ["locator_test.py"],
-        "moves": True,
-    },
-    "connect": {
-        "title": "Connection test",
-        "description": "Connects to all 3 robots, reads battery and firmware. No movement.",
-        "args": ["connect_test.py", "--hold", *ROBOT_NAMES],
-        "moves": False,
     },
 }
 
@@ -155,6 +119,10 @@ class Runner:
         self.clients = set()
         self.keys = {}                 # websocket -> (set of key codes, turbo)
         self.game = None               # latest tic-tac-toe state
+        self.telemetry = None          # latest 2D arena telemetry
+        self.simulation = os.environ.get("SPHERO_SIM", "1").lower() in ("1", "true", "yes")
+        if not sphero_ble.list_adapters():
+            self.simulation = True
         self.lock = asyncio.Lock()
 
     def status(self):
@@ -163,7 +131,25 @@ class Runner:
             "running": self.program,
             "started": self.started,
             "last_exit": self.last_exit,
+            "simulation": self.simulation,
         }
+
+    def get_current_telemetry(self):
+        if self.telemetry is not None:
+            return self.telemetry
+        try:
+            from sphero_sim import DEFAULT_ROBOT_SPECS, hex_color
+            res = {"robots": []}
+            for name, _, hx, hy, col in DEFAULT_ROBOT_SPECS[:3]:
+                res["robots"].append({
+                    "name": name, "x": hx, "y": hy, "heading": 0.0, "speed": 0.0,
+                    "front_led": "#ffffff", "back_led": "#0000ff",
+                    "matrix": [[hex_color(col.r, col.g, col.b) if (r in (0, 7) or c in (0, 7)) else "#000000"
+                                for c in range(8)] for r in range(8)],
+                })
+            return res
+        except Exception:
+            return {"robots": []}
 
     async def broadcast(self, message):
         for ws in list(self.clients):
@@ -181,16 +167,28 @@ class Runner:
         async with self.lock:
             await self._stop()
             spec = PROGRAMS[program_id]
-            await self.add_line(f"=== Start: {spec['title']} ===")
+            mode_tag = " [SIMULATION]" if self.simulation else ""
+            await self.add_line(f"=== Start: {spec['title']}{mode_tag} ===")
             await self._release()
+
+            env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+            if self.simulation:
+                env["SPHERO_SIM"] = "1"
+
+            venv_py = ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+            python_exec = str(venv_py) if venv_py.exists() else sys.executable
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+            start_new_session = (sys.platform != "win32")
+
             self.proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-u", *spec["args"],
+                python_exec, "-u", *spec["args"],
                 cwd=ROOT,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                start_new_session=True,
-                env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                start_new_session=start_new_session,
+                creationflags=creationflags,
+                env=env,
             )
             self.program = program_id
             self.started = time.time()
@@ -206,16 +204,34 @@ class Runner:
         if proc is None or proc.returncode is not None:
             return
         await self.add_line("=== Stopping (Ctrl+C) ===")
-        for sig, wait in ((signal.SIGINT, STOP_GRACE), (signal.SIGTERM, 3), (signal.SIGKILL, 3)):
+        sig_kill = getattr(signal, "SIGKILL", signal.SIGTERM)
+        for sig, wait in ((signal.SIGINT, STOP_GRACE), (signal.SIGTERM, 3), (sig_kill, 3)):
             try:
-                os.killpg(proc.pid, sig)
+                if hasattr(os, "killpg") and sys.platform != "win32":
+                    os.killpg(proc.pid, sig)
+                elif sys.platform == "win32":
+                    if sig == signal.SIGINT:
+                        try:
+                            proc.send_signal(signal.CTRL_BREAK_EVENT)
+                        except Exception:
+                            proc.terminate()
+                    else:
+                        proc.terminate()
+                else:
+                    proc.terminate()
             except ProcessLookupError:
+                break
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
                 break
             try:
                 await asyncio.wait_for(proc.wait(), wait)
                 break
             except asyncio.TimeoutError:
-                await self.add_line(f"=== No reaction, sending {sig.name} ===")
+                await self.add_line(f"=== No reaction, sending {getattr(sig, 'name', str(sig))} ===")
         await self._release()
         # _read() reports the exit
 
@@ -240,6 +256,12 @@ class Runner:
                     try:
                         self.game = json.loads(line[6:])
                         await self.broadcast({"type": "game", "state": self.game})
+                    except ValueError:
+                        pass
+                elif line.startswith(b"TELEMETRY "):
+                    try:
+                        self.telemetry = json.loads(line[10:])
+                        await self.broadcast({"type": "telemetry", "data": self.telemetry})
                     except ValueError:
                         pass
                 elif line.strip():
@@ -295,10 +317,20 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan)
 
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
 
 @app.get("/")
 async def index():
-    return FileResponse(STATIC / "index.html")
+    candidates = [
+        PROJECT_ROOT / "index.html",
+        STATIC / "index.html",
+    ]
+    for idx in candidates:
+        if idx.exists():
+            return FileResponse(idx)
+    raise HTTPException(404, "index.html not found")
 
 
 @app.get("/api/programs")
@@ -404,6 +436,56 @@ async def change_tictactoe(change: dict):
     return cfg
 
 
+@app.get("/api/sim")
+async def get_sim():
+    return {"simulation": runner.simulation}
+
+
+@app.post("/api/sim")
+async def set_sim(req: dict):
+    runner.simulation = bool(req.get("simulation", True))
+    await runner.broadcast(runner.status())
+    return {"simulation": runner.simulation}
+
+
+@app.get("/api/sound/scream")
+async def sound_scream():
+    candidates = [
+        ASSETS_DIR / "sounds" / "scream.wav",
+        ROOT / "scream.wav",
+        STATIC / "assets" / "sounds" / "scream.wav",
+        PROJECT_ROOT / "assets" / "sounds" / "scream.wav",
+    ]
+    for wav in candidates:
+        if wav.exists():
+            return FileResponse(wav, media_type="audio/wav")
+    raise HTTPException(404, "sound not found")
+
+
+@app.post("/api/shake")
+async def shake(action: dict):
+    """Triggers shake on a robot or cell: {"cell": 1-9} or {"robot": "SB-3FF5"}."""
+    cell = action.get("cell")
+    robot = action.get("robot")
+    if cell is not None:
+        await runner.send_line(f"tap {int(cell)}\n", "game")
+
+    if runner.simulation:
+        try:
+            import sphero_sim
+            sim = sphero_sim.SimulatorManager.get()
+            if robot:
+                sim.get_toy(robot).trigger_shake()
+            elif cell is not None:
+                all_toys = list(sim.toys.values())
+                idx = int(cell) - 1
+                if 0 <= idx < len(all_toys):
+                    all_toys[idx].trigger_shake()
+        except Exception:
+            pass
+    return {"ok": True}
+
+
 @app.websocket("/ws")
 async def websocket(ws: WebSocket):
     await ws.accept()
@@ -411,6 +493,7 @@ async def websocket(ws: WebSocket):
     await ws.send_json(runner.status())
     await ws.send_json({"type": "history", "lines": list(runner.log)})
     await ws.send_json({"type": "game", "state": runner.game})
+    await ws.send_json({"type": "telemetry", "data": runner.get_current_telemetry()})
     try:
         while True:
             msg = await ws.receive_json()
@@ -418,6 +501,11 @@ async def websocket(ws: WebSocket):
                 keys = {k for k in msg.get("keys", []) if k in DRIVE_KEYS}
                 runner.keys[ws] = (keys, bool(msg.get("turbo")))
                 await runner.send_keys()
+            elif msg.get("type") == "joystick":
+                h = int(msg.get("heading", 0)) % 360
+                s = max(0.0, min(255.0, float(msg.get("speed", 0))))
+                r = int(msg.get("robot", 1))
+                await runner.send_line(f"drive {r} {h} {s:.1f}\n", "drive")
     except WebSocketDisconnect:
         pass
     finally:
