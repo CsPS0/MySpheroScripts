@@ -1,535 +1,398 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sphero Control</title>
-<style>
-  :root {
-    --bg: #f4f5f7; --panel: #ffffff; --text: #1c1f24; --muted: #646b76;
-    --line: #dde0e5; --accent: #2f6fdb; --danger: #c93333; --ok: #1f8a4c;
-    --warn: #b7791f; --log-bg: #15181d; --log-text: #d7dde6;
-    --r1: #d93b3b; --r2: #2e9e4f; --r3: #2f6fdb;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121418; --panel: #1b1e24; --text: #e6e9ee; --muted: #9aa2ad;
-      --line: #2c3139; --accent: #5b92f0; --danger: #e05252; --ok: #3dbb6e;
-      --warn: #e0a444; --log-bg: #0c0e11; --log-text: #cfd6df;
-      color-scheme: dark;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 40px; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
-  h1 { font-size: 22px; margin: 0; flex: 1 1 auto; }
-  h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600;
-       text-transform: uppercase; letter-spacing: .04em; }
-  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
-          border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-weight: 600; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-  .pill.running .dot { background: var(--ok); animation: pulse 1.2s infinite; }
-  .pill.offline .dot { background: var(--danger); }
-  @keyframes pulse { 50% { opacity: .35; } }
-  button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--line);
-           background: var(--panel); color: var(--text); padding: 8px 14px; cursor: pointer; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.stop { background: var(--danger); border-color: var(--danger); color: #fff; padding: 10px 22px; }
-  section { margin-bottom: 22px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
-          display: flex; flex-direction: column; gap: 8px; }
-  .card.active { border-color: var(--ok); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 35%, transparent); }
-  .card h3 { margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .card p { margin: 0; color: var(--muted); flex: 1; }
-  .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; }
-  .badge.moves { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
-  .badge.still { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-  #drive { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .pads { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-around; }
-  .pad { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .pad .name { font-weight: 700; }
-  .pad-grid { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 64px); gap: 6px; }
-  .key { width: 64px; height: 64px; font-size: 20px; touch-action: none; user-select: none;
-         -webkit-user-select: none; border-width: 2px; }
-  .key.on { color: #fff; }
-  .r1 .key.on { background: var(--r1); border-color: var(--r1); }
-  .r2 .key.on { background: var(--r2); border-color: var(--r2); }
-  .r3 .key.on { background: var(--r3); border-color: var(--r3); }
-  .up { grid-column: 2; grid-row: 1; } .left { grid-column: 1; grid-row: 2; }
-  .down { grid-column: 2; grid-row: 2; } .right { grid-column: 3; grid-row: 2; }
-  .drive-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; margin-top: 14px; color: var(--muted); }
-  #turbo.on { background: var(--warn); border-color: var(--warn); color: #fff; }
-  #focus-hint { color: var(--warn); font-weight: 600; }
-  #log { background: var(--log-bg); color: var(--log-text); border-radius: 12px; padding: 12px 14px;
-         height: 340px; overflow: auto; font: 13px/1.5 ui-monospace, "JetBrains Mono", Menlo, monospace;
-         white-space: pre-wrap; word-break: break-word; }
-  #log .sys { color: #7fb3ff; }
-  #log .err { color: #ff8a80; }
-  #letters { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .letter-rows { display: grid; gap: 8px; }
-  .letter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .letter-row .big { font-size: 26px; font-weight: 800; width: 34px; text-align: center; }
-  .letter-row .who { min-width: 90px; color: var(--muted); }
-  .letter-row .state { min-width: 150px; font-variant-numeric: tabular-nums; }
-  .letter-row button { padding: 6px 12px; }
-  .letter-row.all { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
-  .hint { color: var(--muted); margin: 10px 0 0; }
-  #ttt { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .ttt-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
-  #ttt-status { font-size: 18px; font-weight: 700; flex: 1 1 auto; }
-  .board { display: grid; grid-template-columns: repeat(3, minmax(0, 110px)); gap: 8px; }
-  .cell { aspect-ratio: 1; font-size: 44px; font-weight: 800; border-radius: 12px; padding: 0;
-          display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
-  .cell small { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 6px; }
-  .cell.X { color: var(--r1); } .cell.O { color: var(--r3); }
-  .cell.num { color: var(--muted); font-size: 30px; }
-  .cell.win { background: color-mix(in srgb, var(--ok) 25%, var(--panel)); border-color: var(--ok); }
-  .cell.virtual { border-style: dashed; }
-  .ttt-setup { margin-top: 14px; }
-  .ttt-setup summary { cursor: pointer; font-weight: 600; }
-  .names { display: grid; grid-template-columns: repeat(3, minmax(0, 140px)); gap: 6px; margin: 10px 0; }
-  .names label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
-  .names input { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
-                 background: var(--bg); color: var(--text); min-width: 0; text-transform: uppercase; }
-  .row-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  #party { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  #party-info { color: var(--muted); font-weight: 600; margin: 0 0 12px; min-height: 1.4em; }
-  .balls { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; max-width: 560px; }
-  .ball { aspect-ratio: 1; border-radius: 50%; padding: 6px; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; line-height: 1.2; border: 3px solid var(--line);
-          transition: background-color .12s; }
-  .ball b { font-size: 15px; } .ball small { font-size: 11px; font-weight: 600; opacity: .85; }
-  .log-head { display: flex; justify-content: space-between; align-items: center; }
-  .log-head button { padding: 4px 10px; font-size: 13px; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sphero BOLT Control Suite</title>
+<link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
-<main>
-  <header>
-    <h1>Sphero Control</h1>
-    <span id="status" class="pill"><span class="dot"></span><span id="status-text">Connecting...</span></span>
-    <button id="stop" class="stop" disabled>Stop</button>
-  </header>
 
-  <section>
-    <h2>Programs</h2>
-    <div id="programs" class="grid"></div>
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand">
+      <span class="brand-icon"></span>
+      <h1>Sphero BOLT</h1>
+    </div>
+
+    <div class="header-actions">
+      <span id="status" class="pill"><span class="dot"></span><span id="status-text">Connecting...</span></span>
+      <button id="sound-toggle" class="sm" title="Toggle Sound">
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <span>Sound ON</span>
+      </button>
+      <button id="global-stop" class="stop sm" disabled>Stop</button>
+    </div>
+  </div>
+
+  <nav class="app-nav">
+    <button class="nav-tab active" data-tab="arena">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <span>Arena</span>
+    </button>
+    <button class="nav-tab" data-tab="shows">
+      <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>Shows</span>
+    </button>
+    <button class="nav-tab" data-tab="games">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg>
+      <span>Party Games</span>
+    </button>
+    <button class="nav-tab" data-tab="tictactoe">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      <span>Tic-Tac-Toe</span>
+    </button>
+    <button class="nav-tab" data-tab="drive">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+      <span>Manual Drive</span>
+    </button>
+    <button class="nav-tab" data-tab="console">
+      <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      <span>Activity Log</span>
+    </button>
+  </nav>
+</header>
+
+<main class="app-main">
+
+  <!-- ==================== VIEW 1: ARENA ==================== -->
+  <section id="view-arena" class="view-page active">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Live Robot Arena
+        </h2>
+        <p class="subtitle">Interactive 2D floor view. Click or tap any robot on the floor to simulate shaking it!</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="font-size:0.85rem; color:var(--muted); font-weight:600;">
+          <input type="checkbox" id="arena-trails" checked> Trails
+        </label>
+        <button id="arena-reset" class="sm">Recenter</button>
+        <button id="arena-shake-all" class="sm">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M2 12h3l2-4 3 8 3-8 2 4h4"/></svg>
+          Shake Bots
+        </button>
+      </div>
+    </div>
+
+    <div class="arena-container">
+      <canvas id="arena-canvas" width="940" height="420"></canvas>
+      <div class="arena-foot">
+        <span id="arena-hint">Floor scale: 1 grid square = 20 cm. Smooth physics & live 8x8 LED matrix display.</span>
+        <span id="arena-stats">Robots: 3 simulated</span>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2>
+        <svg class="icon icon-lg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Quick Launch
+      </h2>
+    </div>
+    <div class="grid-cards">
+      <div class="card">
+        <div class="card-header">
+          <h3>Synchronized Dance</h3>
+          <span class="badge show">Show</span>
+        </div>
+        <p>Full 3-robot choreography: spins, circles, shuffles, individual solos, and rainbow finale!</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('dance')">Start Dance</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Joystick Remote Drive</h3>
+          <span class="badge moves">Drive</span>
+        </div>
+        <p>Drive your Sphero robot with the responsive analog virtual joystick on your screen.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('drive')">Open Joystick</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Hot Potato</h3>
+          <span class="badge game">Game</span>
+        </div>
+        <p>Pass the robot around before the fuse expires! Ends with a loud explosion and scream!</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('potato')">Play Potato</button>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section>
-    <h2>Letters</h2>
-    <div id="letters">
-      <div id="letter-rows" class="letter-rows"></div>
-      <div class="letter-row" style="margin-top:10px">
-        <span class="who">NEU heading</span>
-        <select id="heading">
-          <option value="0">0 (away from you)</option>
-          <option value="90">90 (right)</option>
-          <option value="180">180 (towards you)</option>
-          <option value="270">270 (left, west)</option>
+  <!-- ==================== VIEW 2: SHOWS ==================== -->
+  <section id="view-shows" class="view-page">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Choreography & Shows
+        </h2>
+        <p class="subtitle">Pre-programmed routines and school formation displays.</p>
+      </div>
+    </div>
+
+    <div class="grid-cards">
+      <div class="card">
+        <div class="card-header">
+          <h3>Synchronized Dance Show</h3>
+          <span class="badge show">Multi-Robot</span>
+        </div>
+        <p>All 3 robots execute synchronized 360° spins, side-to-side shuffles, individual solos, orbital circle, and a colorful rainbow finale.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('dance')">Start Dance Show</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>NEU School Formation</h3>
+          <span class="badge show">Matrix Display</span>
+        </div>
+        <p>The robots roll into formation, align to the target heading, and show glowing letters <b>N</b>, <b>E</b>, <b>U</b> on their matrices.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('neu')">Show NEU</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Autonomous Roam</h3>
+          <span class="badge moves">Wander</span>
+        </div>
+        <p>All 3 robots wander smoothly within their 25 cm zones on the floor, avoiding collisions, then return home when stopped.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('roam')">Start Roam</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Letters Live Editor -->
+    <div class="letters-box">
+      <div class="section-header" style="margin-bottom:10px;">
+        <h3>
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          NEU Matrix Letter Orientation
+        </h3>
+      </div>
+      <p style="color:var(--muted); font-size:0.85rem; margin:0 0 12px;">
+        Changes update live on the robots. Adjust rotation (90° clockwise/counter-clockwise) or mirror flip.
+      </p>
+      <div id="letter-rows"></div>
+      <div class="letter-row" style="margin-top:8px;">
+        <span class="letter-who">Target Heading:</span>
+        <select id="heading" style="background:var(--panel); color:var(--text); border:1px solid var(--line); padding:5px 10px; border-radius:6px; font-weight:600;">
+          <option value="0">0° (Away from you)</option>
+          <option value="90">90° (Right)</option>
+          <option value="180">180° (Towards you)</option>
+          <option value="270" selected>270° (Left, West)</option>
         </select>
       </div>
-      <p class="hint" id="letter-hint">Rotation is on the matrix, clockwise. Saved for the next run.
-        Changes show on the robots right away while NEU or LED test runs.</p>
     </div>
   </section>
 
-  <section>
-    <h2>Tic-tac-toe</h2>
-    <div id="ttt">
-      <div class="ttt-top">
-        <span id="ttt-status">Start the Tic-tac-toe program to play.</span>
-        <button id="ttt-new" disabled title="New game, keep the numbers">Same layout</button>
-        <button id="ttt-recount" disabled title="Number the balls again by shaking">Renumber</button>
-        <button id="ttt-start" disabled title="End numbering, remaining squares are played here">Start now</button>
+  <!-- ==================== VIEW 3: PARTY GAMES ==================== -->
+  <section id="view-games" class="view-page">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg>
+          Interactive Party Games
+        </h2>
+        <p class="subtitle">High-energy games designed for student engagement and classroom participation.</p>
       </div>
-      <div id="board" class="board"></div>
-      <details class="ttt-setup">
-        <summary>Setup: robots and number orientation</summary>
-        <p class="row-buttons" style="margin:10px 0 0">
-          <label><input type="checkbox" id="ttt-auto"> Auto: connect the 9 nearest free BOLTs</label>
+    </div>
+
+    <!-- Active Party Game Stage -->
+    <div id="party-container" class="party-container" hidden style="margin-bottom:20px;">
+      <div class="party-header">
+        <h3 id="party-title">Party Game</h3>
+        <button id="party-start" class="primary">Start Game</button>
+      </div>
+      <div id="party-status" style="font-weight:700; color:#58a6ff; margin-bottom:8px;"></div>
+      <div id="party-info" class="party-info-box">Tap Start to begin.</div>
+      <div id="balls" class="ball-grid"></div>
+      <p style="color:var(--muted); font-size:0.8rem; margin:0;">
+        Tap on any glowing circle to act like shaking that robot!
+      </p>
+    </div>
+
+    <div class="grid-cards">
+      <div class="card">
+        <div class="card-header">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 5V2M15 3l-2 2M9 3l2 2"/></svg>
+            Hot Potato
+          </h3>
+          <span class="badge game">Party</span>
+        </div>
+        <p>Shake or tap to light the fuse! The ball blinks faster from green to red with ticking audio, then <b>EXPLODES</b> with a loud boom and scream!</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('potato')">Play Hot Potato</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+            Whack-a-Mole
+          </h3>
+          <span class="badge game">Reflexes</span>
+        </div>
+        <p>A random ball lights up neon green with a pop sound: tap it before it hides! 60s round with dynamic speed and score counter.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('mole')">Play Whack-a-Mole</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            Simon Says
+          </h3>
+          <span class="badge game">Memory</span>
+        </div>
+        <p>Balls light up with distinct musical notes (C, E, G, High C). Repeat the sequence back by tapping the balls! Levels increase in challenge.</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('simon')">Play Simon Says</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+            Rock-Paper-Scissors
+          </h3>
+          <span class="badge game">2-Player</span>
+        </div>
+        <p>2 robots (Player 1 Red vs Player 2 Blue). Countdown 3-2-1, then both balls reveal gestures on their 8x8 LED matrix. Best of 3 match!</p>
+        <div class="card-actions">
+          <button class="primary" onclick="startProgram('rps')">Play RPS</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VIEW 4: TIC-TAC-TOE ==================== -->
+  <section id="view-tictactoe" class="view-page">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          9-Ball Floor Tic-Tac-Toe
+        </h2>
+        <p class="subtitle">9 robots arranged in a 3x3 grid on the floor. Tap squares to take turns.</p>
+      </div>
+    </div>
+
+    <div class="ttt-container">
+      <div class="ttt-controls">
+        <span id="ttt-status" style="font-weight:700; color:#58a6ff;">Start Tic-tac-toe to play.</span>
+        <div style="display:flex; gap:8px;">
+          <button id="ttt-new" class="sm" disabled>Same Layout</button>
+          <button id="ttt-recount" class="sm" disabled>Renumber</button>
+          <button id="ttt-start" class="primary sm" onclick="startProgram('tictactoe')">Start Game</button>
+        </div>
+      </div>
+
+      <div id="board" class="ttt-grid"></div>
+      <p style="color:var(--muted); font-size:0.8rem; text-align:center; margin:0;">
+        Three in a row turns the winning robots bright green with victory fanfare!
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== VIEW 5: MANUAL DRIVE ==================== -->
+  <section id="view-drive" class="view-page">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          Manual RC Drive (Virtual Joystick)
+        </h2>
+        <p class="subtitle">Touch and drag the thumbstick in any direction. Zero lag, fluid return-to-center physics.</p>
+      </div>
+    </div>
+
+    <div class="joystick-panel">
+      <div class="joystick-wrapper">
+        <div id="joy-base" class="joystick-base">
+          <div class="joystick-guide-ring"></div>
+          <div class="joystick-ticks">
+            <span class="joystick-tick n">0°</span>
+            <span class="joystick-tick e">90°</span>
+            <span class="joystick-tick s">180°</span>
+            <span class="joystick-tick w">270°</span>
+          </div>
+          <div id="joy-knob" class="joystick-knob">
+            <div class="joystick-knob-core"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="joystick-hud">
+        <div class="hud-metrics">
+          <div class="hud-box">
+            <div class="label">Heading</div>
+            <div id="hud-heading" class="val">0° N</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">Throttle</div>
+            <div id="hud-speed" class="val">0%</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">Mode</div>
+            <div class="val" style="color:#2ecc71; font-size:1.05rem;">Smooth RC</div>
+          </div>
+        </div>
+
+        <div class="robot-selector">
+          <label>Steer Robot:</label>
+          <button class="bot-chip active" data-bot="1" style="color:var(--r1);">BOLT 1 (Red)</button>
+          <button class="bot-chip" data-bot="2" style="color:var(--r2);">BOLT 2 (Green)</button>
+          <button class="bot-chip" data-bot="3" style="color:var(--r3);">BOLT 3 (Blue)</button>
+        </div>
+
+        <p style="color:var(--muted); font-size:0.82rem; margin:0;">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <b>Controls:</b> Drag the thumbstick with your finger on a mobile phone, or with your mouse. On a computer keyboard, you can also use <b>W A S D</b> or arrow keys!
         </p>
-        <p class="hint">Without auto, the robot names below are used (at the next start). Empty squares are played on this page.</p>
-        <div id="names" class="names"></div>
-        <div class="row-buttons">
-          <button id="names-save" class="primary">Save names</button>
-          <span id="names-saved" class="hint" style="margin:0"></span>
-        </div>
-        <p class="hint">Number orientation on the matrices (live while the game runs): <b id="ttt-orient"></b></p>
-        <div class="row-buttons">
-          <button data-o="ccw">&#8634; 90&deg;</button>
-          <button data-o="cw">&#8635; 90&deg;</button>
-          <button data-o="mirror">Mirror</button>
-          <button data-o="reset">Reset</button>
-        </div>
-      </details>
-    </div>
-  </section>
-
-  <section id="party-section" hidden>
-    <h2 id="party-title">Game</h2>
-    <div id="party">
-      <div class="ttt-top">
-        <span id="party-status"></span>
-        <button id="party-start" class="primary">Start</button>
       </div>
-      <p id="party-info"></p>
-      <div id="balls" class="balls"></div>
-      <p class="hint">Circles show the balls live. Click a circle to act like shaking that ball.
-        Robot choice and symbol orientation come from the Tic-tac-toe setup.</p>
     </div>
   </section>
 
-  <section id="drive" hidden>
-    <h2>Drive</h2>
-    <div id="pads" class="pads"></div>
-    <div class="drive-foot">
-      <button id="turbo">Turbo (Shift)</button>
-      <span>Directions as seen from you. Release to stop.</span>
-      <span id="focus-hint" hidden>Page not focused: click here to drive.</span>
+  <!-- ==================== VIEW 6: CONSOLE / LOGS ==================== -->
+  <section id="view-console" class="view-page">
+    <div class="section-header">
+      <div>
+        <h2>
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Activity Console & Telemetry
+        </h2>
+        <p class="subtitle">Live system telemetry, connection events, and game diagnostics.</p>
+      </div>
+      <button id="clear-log" class="sm">Clear</button>
     </div>
+
+    <div id="log" class="console-box"></div>
   </section>
 
-  <section>
-    <div class="log-head"><h2>Output</h2><button id="clear">Clear</button></div>
-    <div id="log"></div>
-  </section>
 </main>
 
-<script>
-const DRIVE_KEYS = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"]);
-let programs = [];
-let state = { running: null, started: null, last_exit: null };
-let ws = null, online = false;
-const keyboard = new Set(), touch = new Set();
-let shift = false, turboButton = false;
+<footer class="app-footer">
+  Sphero BOLT Presentation Suite &bull; Ready for School Open House &bull; Offline & Web Ready
+</footer>
 
-const $ = (id) => document.getElementById(id);
-
-async function loadPrograms() {
-  programs = await (await fetch("/api/programs")).json();
-  renderPrograms();
-}
-
-function renderPrograms() {
-  const box = $("programs");
-  box.innerHTML = "";
-  for (const p of programs) {
-    const card = document.createElement("div");
-    card.className = "card" + (state.running === p.id ? " active" : "");
-    const running = state.running === p.id;
-    const label = running ? "Running" : state.running ? "Switch to this" : "Start";
-    card.innerHTML = `
-      <h3>${p.title} <span class="badge ${p.moves ? "moves" : "still"}">${p.moves ? "moves robots" : "no movement"}</span></h3>
-      <p>${p.description}</p>
-      <div><button class="primary" ${running || !online ? "disabled" : ""}>${label}</button></div>`;
-    card.querySelector("button").onclick = () => start(p.id);
-    box.appendChild(card);
-  }
-}
-
-function renderStatus() {
-  const pill = $("status"), text = $("status-text");
-  pill.className = "pill" + (!online ? " offline" : state.running ? " running" : "");
-  if (!online) text.textContent = "Server offline";
-  else if (state.running) {
-    const p = programs.find((x) => x.id === state.running);
-    const secs = Math.round(Date.now() / 1000 - state.started);
-    text.textContent = `Running: ${p ? p.title : state.running} (${secs} s)`;
-  } else if (state.last_exit) {
-    const p = programs.find((x) => x.id === state.last_exit[0]);
-    text.textContent = `Idle. Last: ${p ? p.title : state.last_exit[0]}, exit ${state.last_exit[1]}`;
-  } else text.textContent = "Idle";
-  $("stop").disabled = !online || !state.running;
-  const driving = isDriving();
-  $("drive").hidden = !driving;
-  renderPads();
-  if (!driving) { keyboard.clear(); touch.clear(); renderKeys(); }
-}
-
-function runningProgram() { return programs.find((x) => x.id === state.running); }
-function isDriving() {
-  const p = runningProgram();
-  return !!(p && p.pads && p.pads.length);
-}
-
-// Control pads for the running drive program, built from its "pads" list.
-const PAD_KEYS = {
-  wasd:   { label: "W A S D",    codes: ["KeyW", "KeyA", "KeyS", "KeyD"], text: ["W", "A", "S", "D"] },
-  arrows: { label: "arrow keys", codes: ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"], text: ["\u2191", "\u2190", "\u2193", "\u2192"] },
-  both:   { label: "W A S D or arrow keys", codes: ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"], text: ["\u2191", "\u2190", "\u2193", "\u2192"] },
-};
-const SAME_KEY = { KeyW: "ArrowUp", KeyA: "ArrowLeft", KeyS: "ArrowDown", KeyD: "ArrowRight" };
-let padsFor = null;
-function renderPads() {
-  const p = runningProgram();
-  const id = p && p.pads && p.pads.length ? p.id : null;
-  if (id === padsFor) return;
-  padsFor = id;
-  const box = $("pads");
-  box.innerHTML = "";
-  if (!id) return;
-  for (const pad of p.pads) {
-    const k = PAD_KEYS[pad.keys];
-    const el = document.createElement("div");
-    el.className = `pad ${pad.color}`;
-    el.innerHTML = `<span class="name" style="color:var(--${pad.color})">${pad.robot}: ${k.label}</span>
-      <div class="pad-grid">${["up", "left", "down", "right"].map((cls, n) =>
-        `<button class="key ${cls}" data-code="${k.codes[n]}">${k.text[n]}</button>`).join("")}</div>`;
-    box.appendChild(el);
-  }
-  box.querySelectorAll(".key").forEach(bindTouchKey);
-  renderKeys();
-}
-
-async function start(id) {
-  await fetch(`/api/start/${id}`, { method: "POST" });
-}
-$("stop").onclick = () => fetch("/api/stop", { method: "POST" });
-
-function addLine(line) {
-  const log = $("log");
-  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
-  const div = document.createElement("div");
-  div.textContent = line;
-  if (line.startsWith("===")) div.className = "sys";
-  else if (/error|failed|traceback|exception/i.test(line)) div.className = "err";
-  log.appendChild(div);
-  while (log.childNodes.length > 1500) log.removeChild(log.firstChild);
-  if (atBottom) log.scrollTop = log.scrollHeight;
-}
-$("clear").onclick = () => { $("log").innerHTML = ""; };
-
-function connect() {
-  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
-  ws.onopen = () => { online = true; renderStatus(); renderPrograms(); };
-  ws.onclose = () => { online = false; renderStatus(); renderPrograms(); setTimeout(connect, 1500); };
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === "status") { state = msg; renderStatus(); renderPrograms(); }
-    else if (msg.type === "log") addLine(msg.line);
-    else if (msg.type === "letters") { letterCfg = msg.config; renderLetters(); }
-    else if (msg.type === "game") { gameState = msg.state; renderGame(); renderParty(); }
-    else if (msg.type === "tictactoe") { tttCfg = msg.config; renderTttSetup(); renderGame(); }
-    else if (msg.type === "history") { $("log").innerHTML = ""; msg.lines.forEach((l) => addLine(l.line)); }
-  };
-}
-
-// Drive keys: keyboard and touch buttons. The state is sent every 100 ms while
-// driving, so the robots stop if this page closes or loses the connection.
-function pressedKeys() { return [...new Set([...keyboard, ...touch])]; }
-function turbo() { return shift || turboButton; }
-
-function renderKeys() {
-  const on = new Set(pressedKeys());
-  const p = runningProgram();
-  if (p && p.pads && p.pads.some((x) => x.keys === "both")) {
-    for (const [wasd, arrow] of Object.entries(SAME_KEY)) if (on.has(wasd)) on.add(arrow);
-  }
-  document.querySelectorAll(".key").forEach((b) => b.classList.toggle("on", on.has(b.dataset.code)));
-  $("turbo").classList.toggle("on", turbo());
-}
-
-function sendKeys() {
-  if (!isDriving() || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "keys", keys: pressedKeys(), turbo: turbo() }));
-}
-setInterval(sendKeys, 100);
-setInterval(() => { if (state.running) renderStatus(); }, 1000);
-
-// On Linux, a held key can send fake "released + pressed again" events while
-// it repeats. A release only counts after the key stayed up for RELEASE_MS.
-const RELEASE_MS = 80;
-const pendingRelease = new Map();
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Shift") shift = true;
-  if (isDriving() && DRIVE_KEYS.has(e.code)) {
-    e.preventDefault();
-    clearTimeout(pendingRelease.get(e.code));
-    pendingRelease.delete(e.code);
-    if (!keyboard.has(e.code)) { keyboard.add(e.code); sendKeys(); }
-  }
-  renderKeys();
-});
-window.addEventListener("keyup", (e) => {
-  if (e.key === "Shift") shift = false;
-  if (DRIVE_KEYS.has(e.code)) {
-    clearTimeout(pendingRelease.get(e.code));
-    pendingRelease.set(e.code, setTimeout(() => {
-      pendingRelease.delete(e.code);
-      keyboard.delete(e.code);
-      renderKeys();
-      sendKeys();
-    }, RELEASE_MS));
-  }
-  renderKeys();
-});
-function releaseAll() {
-  pendingRelease.forEach(clearTimeout); pendingRelease.clear();
-  keyboard.clear(); touch.clear(); shift = false; renderKeys(); sendKeys(); updateFocus();
-}
-window.addEventListener("blur", releaseAll);
-window.addEventListener("focus", updateFocus);
-document.addEventListener("visibilitychange", releaseAll);
-function updateFocus() { $("focus-hint").hidden = document.hasFocus(); }
-
-function bindTouchKey(b) {
-  const code = b.dataset.code;
-  const down = (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); touch.add(code); renderKeys(); sendKeys(); };
-  const up = () => { touch.delete(code); renderKeys(); sendKeys(); };
-  b.addEventListener("pointerdown", down);
-  b.addEventListener("pointerup", up);
-  b.addEventListener("pointercancel", up);
-  b.addEventListener("lostpointercapture", up);
-  b.addEventListener("contextmenu", (e) => e.preventDefault());
-}
-$("turbo").onclick = () => { turboButton = !turboButton; renderKeys(); sendKeys(); };
-
-// Tic-tac-toe
-let gameState = null, tttCfg = null;
-
-function renderGame() {
-  const game = gameState && gameState.kind !== "party" ? gameState : null;
-  const board = $("board");
-  board.innerHTML = "";
-  const running = !!game;
-  const numbering = running && game.phase === "numbering";
-  $("ttt-new").disabled = !running;
-  $("ttt-recount").disabled = !running || numbering;
-  $("ttt-start").disabled = !numbering;
-  if (!running) {
-    $("ttt-status").textContent = "Start the Tic-tac-toe program to play.";
-  } else if (numbering) {
-    $("ttt-status").textContent = game.robots
-      ? `Numbering: shake the ball for square ${game.next} (${game.numbered} of ${game.robots} done). Reading order, top left first.`
-      : "No robots connected: play on this page.";
-  } else if (game.winner === "draw") {
-    $("ttt-status").textContent = "Draw. Numbering starts again in a few seconds, or press Same layout.";
-  } else if (game.winner) {
-    $("ttt-status").textContent = `${game.winner} wins! Numbering starts again in a few seconds, or press Same layout.`;
-  } else {
-    $("ttt-status").innerHTML = `Turn: <span style="color:${game.turn === "X" ? "var(--r1)" : "var(--r3)"}">${game.turn}</span>`;
-  }
-  for (let c = 0; c < 9; c++) {
-    const b = document.createElement("button");
-    const mark = running && !numbering ? game.board[c] : null;
-    const cell = running ? game.cells[c] : null;
-    b.className = "cell " + (mark || "num") + (running && game.line && game.line.includes(c) ? " win" : "")
-      + (cell && !cell.connected ? " virtual" : "");
-    const label = numbering ? (cell && cell.connected ? cell.robot : (c + 1 === game.next ? "shake next" : ""))
-      : cell ? (cell.connected ? cell.robot : "click to play") : (tttCfg && !tttCfg.auto ? tttCfg.robots[c] || "no robot" : "");
-    b.innerHTML = `${mark || c + 1}<small>${label}</small>`;
-    b.disabled = !running || numbering || !!mark || !!game.winner;
-    b.onclick = () => fetch("/api/game", { method: "POST", headers: { "Content-Type": "application/json" },
-                                           body: JSON.stringify({ action: "play", cell: c + 1 }) });
-    board.appendChild(b);
-  }
-}
-for (const [id, action] of [["ttt-new", "new"], ["ttt-recount", "recount"], ["ttt-start", "start"]]) {
-  $(id).onclick = () => fetch("/api/game", { method: "POST", headers: { "Content-Type": "application/json" },
-                                             body: JSON.stringify({ action }) });
-}
-
-function renderParty() {
-  const g = gameState && gameState.kind === "party" ? gameState : null;
-  $("party-section").hidden = !g;
-  if (!g) return;
-  $("party-title").textContent = g.title;
-  $("party-status").textContent = g.status;
-  $("party-info").textContent = g.info;
-  const box = $("balls");
-  if (box.childNodes.length !== g.cells.length) {
-    box.innerHTML = "";
-    g.cells.forEach((_, i) => {
-      const b = document.createElement("button");
-      b.className = "ball";
-      b.onclick = () => fetch("/api/game", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "tap", cell: i + 1 }) });
-      box.appendChild(b);
-    });
-  }
-  g.cells.forEach((c, i) => {
-    const b = box.childNodes[i];
-    const [r, gr, bl] = [1, 3, 5].map((k) => parseInt(c.color.slice(k, k + 2), 16));
-    const dark = 0.299 * r + 0.587 * gr + 0.114 * bl < 140;
-    b.style.background = c.color === "#000000" ? "var(--bg)" : c.color;
-    b.style.color = c.color === "#000000" ? "var(--text)" : dark ? "#fff" : "#111";
-    b.innerHTML = `<b>${c.label || ""}</b><small>${c.robot}</small>`;
-  });
-}
-$("party-start").onclick = () => fetch("/api/game", { method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ action: "start" }) });
-
-function renderTttSetup() {
-  if (!tttCfg) return;
-  const box = $("names");
-  if (!box.children.length) {
-    for (let c = 0; c < 9; c++) {
-      const l = document.createElement("label");
-      l.innerHTML = `Square ${c + 1}<input data-c="${c}" placeholder="SB-xxxx" maxlength="12">`;
-      box.appendChild(l);
-    }
-  }
-  box.querySelectorAll("input").forEach((i) => { if (document.activeElement !== i) i.value = tttCfg.robots[+i.dataset.c]; });
-  $("ttt-auto").checked = tttCfg.auto;
-  $("ttt-orient").textContent = `${tttCfg.rotation}\u00b0${tttCfg.mirror ? ", mirrored" : ""}`;
-}
-async function changeTtt(body) {
-  const r = await fetch("/api/tictactoe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (r.ok) { tttCfg = await r.json(); renderTttSetup(); renderGame(); }
-  return r.ok;
-}
-$("names-save").onclick = async () => {
-  const robots = [...$("names").querySelectorAll("input")].map((i) => i.value.trim().toUpperCase());
-  const ok = await changeTtt({ robots });
-  $("names-saved").textContent = ok ? "Saved. Used at the next start." : "Saving failed.";
-};
-$("ttt-auto").onchange = (e) => changeTtt({ auto: e.target.checked });
-document.querySelectorAll("[data-o]").forEach((b) => b.onclick = () => changeTtt({ action: b.dataset.o }));
-fetch("/api/tictactoe").then((r) => r.json()).then((cfg) => { tttCfg = cfg; renderTttSetup(); renderGame(); });
-
-// Letters panel
-const ROBOT_COLORS = ["var(--r1)", "var(--r2)", "var(--r3)"];
-const ROBOT_NAMES = ["SB-3FF5", "SB-034E", "SB-61A9"];
-let letterCfg = null;
-
-async function changeLetters(body) {
-  const r = await fetch("/api/letters", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (r.ok) { letterCfg = await r.json(); renderLetters(); }
-}
-
-function renderLetters() {
-  if (!letterCfg) return;
-  const box = $("letter-rows");
-  box.innerHTML = "";
-  const row = (target, big, color, who, state) => {
-    const el = document.createElement("div");
-    el.className = "letter-row" + (target === "all" ? " all" : "");
-    el.innerHTML = `<span class="big" style="color:${color}">${big}</span><span class="who">${who}</span>
-      <span class="state">${state}</span>
-      <button data-a="ccw" title="Rotate 90 degrees counter-clockwise">&#8634; 90&deg;</button>
-      <button data-a="cw" title="Rotate 90 degrees clockwise">&#8635; 90&deg;</button>
-      <button data-a="mirror" title="Flip left-right">Mirror</button>
-      <button data-a="reset" title="Rotation 0, no mirror">Reset</button>`;
-    el.querySelectorAll("button").forEach((b) => b.onclick = () => changeLetters({ target, action: b.dataset.a }));
-    box.appendChild(el);
-  };
-  letterCfg.letters.forEach((item, i) =>
-    row(i, item.letter, ROBOT_COLORS[i], ROBOT_NAMES[i], `${item.rotation}&deg;${item.mirror ? ", mirrored" : ""}`));
-  row("all", "&#8727;", "var(--muted)", "All three", "");
-  $("heading").value = String(letterCfg.heading);
-}
-$("heading").onchange = (e) => changeLetters({ heading: Number(e.target.value) });
-
-fetch("/api/letters").then((r) => r.json()).then((cfg) => { letterCfg = cfg; renderLetters(); });
-
-loadPrograms().then(connect);
-updateFocus();
-</script>
+<script src="assets/js/app.js" defer></script>
 </body>
 </html>

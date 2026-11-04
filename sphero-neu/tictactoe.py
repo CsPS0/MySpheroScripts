@@ -104,12 +104,12 @@ def connect_robots(cfg, stack, want=9):
     """Connects up to `want` robots, at most PER_ADAPTER per Bluetooth adapter.
     Returns a list of (name, api, toy)."""
     robots = []
-    adapters = sphero_ble.list_adapters() or [None]
+    adapters = sphero_ble.list_adapters() or ["default"]
     load = {a: 0 for a in adapters}
     full = set()
     timeouts = {a: 0 for a in adapters}
     sphero_ble.release_stale(log=lambda m: print(m, flush=True))
-    print(f"Bluetooth adapters: {', '.join(a or 'default' for a in adapters)} "
+    print(f"Bluetooth adapters: {', '.join(a for a in adapters)} "
           f"(up to {PER_ADAPTER} robots each).", flush=True)
 
     def free_adapter():
@@ -126,7 +126,7 @@ def connect_robots(cfg, stack, want=9):
         try:
             toy, api = sphero_ble.connect_toy(
                 name, lambda t: stack.enter_context(SpheroEduAPI(t)),
-                attempts=attempts, adapter=adapter if len(adapters) > 1 else None)
+                attempts=attempts, adapter=adapter if len(adapters) > 1 and adapter != "default" else None)
             robots.append((name, api, toy))
             load[adapter] += 1
             timeouts[adapter] = 0
