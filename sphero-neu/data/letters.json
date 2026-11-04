@@ -1,0 +1,20 @@
+{
+  "heading": 0,
+  "letters": [
+    {
+      "letter": "N",
+      "rotation": 180,
+      "mirror": false
+    },
+    {
+      "letter": "E",
+      "rotation": 0,
+      "mirror": false
+    },
+    {
+      "letter": "U",
+      "rotation": 90,
+      "mirror": false
+    }
+  ]
+}
