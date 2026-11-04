@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(.venv/bin/python:*)",
+      "Bash(python:*)",
+      "Bash(.venv/bin/pip:*)",
+      "Bash(pip show:*)",
+      "Bash(pip list:*)",
+      "Bash(bluetoothctl:*)",
+      "Bash(systemctl status bluetooth:*)",
+      "Bash(journalctl:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)"
+    ]
+  }
+}

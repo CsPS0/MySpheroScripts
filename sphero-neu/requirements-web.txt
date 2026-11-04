@@ -1,0 +1,9 @@
+# Robot control (same versions as .venv)
+bleak==3.0.2
+dbus-fast==5.0.22
+spherov2==0.12.1
+numpy==2.5.3
+transforms3d==0.4.2
+# Web server
+fastapi==0.141.1
+uvicorn[standard]==0.53.0

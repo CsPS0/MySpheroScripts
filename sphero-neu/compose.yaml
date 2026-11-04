@@ -1,0 +1,24 @@
+# Web control for the Sphero programs: http://localhost:3000
+#
+# Bluetooth stays on the host. The container uses the host's BlueZ through
+# the system D-Bus socket, as the same user id as you (BlueZ checks the uid).
+# Only one program may use the robots at a time: do not run the scripts from
+# .venv while this is running a program.
+
+services:
+  sphero-web:
+    build: .
+    image: sphero-web
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/app:ro
+      - ./data:/app/data          # letter settings, written by the web page
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+    ports:
+      # Open to everyone on the network. For this laptop only, use "127.0.0.1:3000:8080".
+      - "3000:8080"
+    stop_signal: SIGINT        # lets a running program stop the robots cleanly
+    stop_grace_period: 25s
+    restart: unless-stopped
