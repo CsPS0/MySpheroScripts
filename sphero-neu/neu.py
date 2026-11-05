@@ -28,9 +28,18 @@ STAGGER = 0.8            # s between the robots turning
 
 
 def show(apis, toys, cfg, index):
-    item = cfg["letters"][index]
-    indicators.show_letter(apis[index], toys[index], item["letter"],
-                           bolt_dance.ROBOTS[index][1], item["rotation"], item["mirror"])
+    item = cfg["letters"][index] if index < len(cfg["letters"]) else {"letter": "N", "rotation": 0, "mirror": False}
+    color = bolt_dance.ROBOTS[index][1]
+    toy = toys[index]
+    api = apis[index]
+    # Display full NEUMANN text scrolling on the 8x8 matrix
+    if hasattr(toy, "set_compressed_frame_player_text_scrolling"):
+        toy.set_compressed_frame_player_text_scrolling("NEUMANN", color.r, color.g, color.b, 8, True)
+    elif hasattr(api, "draw_matrix_text"):
+        with contextlib.suppress(Exception):
+            api.draw_matrix_text("NEUMANN", color, 8, True)
+    else:
+        indicators.show_letter(api, toy, item["letter"], color, item["rotation"], item["mirror"])
 
 
 def main():
@@ -61,7 +70,7 @@ def main():
                 show(apis, toys, cfg, index)
                 api.set_front_led(indicators.FRONT_LED)
                 time.sleep(STAGGER)
-            print("NEU is shown. Rotate letters on the web page. Stop to end.", flush=True)
+            print("NEUMANN is scrolling on all robots. Stop to end.", flush=True)
 
             while True:
                 try:

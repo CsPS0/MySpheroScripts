@@ -172,15 +172,15 @@ const I18N = {
 
     shows_title: "Koreográfia és Bemutatók",
     shows_subtitle: "Előre beprogramozott látványos robotmozgások és iskolai felirat.",
-    card_neu_title: "NEU Iskolai Felirat",
+    card_neu_title: "Neumann Iskolai Felirat",
     badge_matrix: "Mátrix",
-    card_neu_desc: "A robotok felállnak a megfelelő pozícióba, és kirakják az N, E, U betűket a kijelzőjükön.",
-    btn_show_neu: "NEU Megjelenítése",
+    card_neu_desc: "A robotok felállnak a megfelelő pozícióba, és folyamatosan görgetik a teljes NEUMANN nevet a kijelzőjükön ragyogó fényekkel.",
+    btn_show_neu: "Neumann Indítása",
     card_roam_title: "Önálló Bolyongás",
     badge_wander: "Mozgás",
     card_roam_desc: "Mindhárom robot szabadon pásztázza a padlót a saját 25 cm-es zónájában az akadályokat kikerülve.",
     btn_start_roam: "Bolyongás Indítása",
-    neu_editor_title: "NEU Betűk Forgatása",
+    neu_editor_title: "Neumann Betűk & Irány Élő Beállítása",
     neu_editor_desc: "A beállítások azonnal megjelennek a robotokon. 90°-os forgatás vagy tükrözés.",
     target_heading: "Célirány:",
 
@@ -299,16 +299,16 @@ const I18N = {
 
     shows_title: "Choreography & Shows",
     shows_subtitle: "Pre-programmed routines and school formation displays.",
-    card_neu_title: "NEU School Formation",
+    card_neu_title: "Neumann School Formation",
     badge_matrix: "Matrix",
-    card_neu_desc: "The robots roll into formation, align to heading, and show glowing letters N, E, U on their matrices.",
-    btn_show_neu: "Show NEU",
+    card_neu_desc: "The robots roll into formation, align to heading, and scroll the glowing NEUMANN school name on their LED matrices.",
+    btn_show_neu: "Start Neumann",
     card_roam_title: "Autonomous Roam",
     badge_wander: "Wander",
     card_roam_desc: "All 3 robots wander smoothly within their 25 cm zones, avoiding collisions, then return home.",
     btn_start_roam: "Start Roam",
-    neu_editor_title: "NEU Matrix Letter Orientation",
-    neu_editor_desc: "Changes update live on the robots. Adjust rotation (90° clockwise/counter-clockwise) or mirror flip.",
+    neu_editor_title: "Neumann Letters & Heading Live Settings",
+    neu_editor_desc: "Changes update live on the robots. Adjust rotation or mirror flip.",
     target_heading: "Target Heading:",
 
     games_title: "Interactive Party Games",
@@ -509,7 +509,7 @@ let ws = null, online = false, clientMode = false;
 
 const DEFAULT_PROGRAMS = [
   { id: "dance", title: "Dance Show", description: "Synchronized choreography: spins, circles, shuffles, individual solos, orbital circle, and rainbow finale.", moves: true, kind: "show" },
-  { id: "neu", title: "NEU Formation", description: "Robots roll into formation, align to heading, and display glowing N, E, U on matrices.", moves: true, kind: "show" },
+  { id: "neu", title: "Neumann Formation", description: "Robots roll into formation, align to heading, and scroll the glowing NEUMANN school name on matrices.", moves: true, kind: "show" },
   { id: "roam", title: "Autonomous Roam", description: "All 3 robots explore within their floor zone, smoothly turning and avoiding collisions.", moves: true, kind: "show" },
   { id: "drive", title: "Joystick Drive", description: "Remote control driving with the virtual joystick! Smooth steering, speed throttle, and zero lag.", moves: true, kind: "drive" },
   { id: "potato", title: "Hot Potato", description: "Pass the potato before the fuse burns down! Ticking accelerates until a loud boom and scream explosion!", moves: false, kind: "game" },
@@ -1223,22 +1223,24 @@ function runClientDance() {
 }
 
 // ------------------------------------------
-// NEU Formation
+// Neumann Formation
 // ------------------------------------------
 function runClientNeu() {
   initClientRobots(3);
   let step = 0;
-  addLine("=== NEU Formation Active ===");
+  const neumannChars = ["N", "E", "U", "M", "A", "N", "N"];
+  addLine("=== Neumann Formation Active ===");
   clientLoopId = setInterval(() => {
     step++;
     if (step < 25) {
       clientRobots.forEach(r => { r.y = (step / 25) * 20; r.heading = 0; });
     } else {
       const targetHeading = letterCfg ? letterCfg.heading : 270;
+      const charIdx = Math.floor((step - 25) / 25) % neumannChars.length;
       clientRobots.forEach((r, i) => {
         r.heading = targetHeading;
-        const lInfo = (letterCfg && letterCfg.letters[i]) || { letter: ["N","E","U"][i], rotation: 0, mirror: false };
-        r.matrix = makeMatrix(lInfo.letter, r.baseColor, lInfo.rotation, lInfo.mirror);
+        const letter = neumannChars[(charIdx + i) % neumannChars.length];
+        r.matrix = makeMatrix(letter, r.baseColor, 0, false);
       });
     }
     updateTelemetry({ robots: clientRobots });
@@ -2280,10 +2282,15 @@ async function initQRCode() {
 function renderClients(clients, maxSlots = 3) {
   connectedClients = clients || [];
   const badge = $("slots-badge");
+  const headerPill = $("slots-header-text");
   const list = $("connected-devices-list");
   if (badge) {
     const unit = currentLang === "hu" ? "telefon" : "phones";
     badge.textContent = `${connectedClients.length} / ${maxSlots} ${unit}`;
+  }
+  if (headerPill) {
+    const unit = currentLang === "hu" ? "Telefon" : "Phones";
+    headerPill.textContent = `${connectedClients.length} / ${maxSlots} ${unit}`;
   }
   if (!list) return;
 
@@ -2403,11 +2410,169 @@ function handleWsMessage(e) {
     msg.lines.forEach((l) => addLine(l.line));
   } else if (msg.type === "clients") {
     renderClients(msg.clients, msg.max || 3);
+  } else if (msg.type === "robot_pool") {
+    renderRobotPool(msg.robots);
+  } else if (msg.type === "self_info") {
+    handleSelfInfo(msg);
+  } else if (msg.type === "controller_connected") {
+    handleControllerConnected(msg);
+  } else if (msg.type === "settings") {
+    if (typeof msg.auto_map === "boolean") {
+      const toggle = $("toggle-auto-map");
+      if (toggle) toggle.checked = msg.auto_map;
+    }
   } else if (msg.type === "error" && msg.code === "MAX_CLIENTS") {
     showMaxClientsModal(msg.message);
   } else if (msg.type === "timeout" || msg.type === "kicked") {
     showTimeoutModal(msg.message);
   }
+}
+
+let currentRobots = [];
+function renderRobotPool(robots) {
+  currentRobots = robots || [];
+  const container = $("robot-pool-cards");
+  const pill = $("robots-pill-text");
+  if (pill) pill.textContent = `${currentRobots.length} / ${currentRobots.length} Robot`;
+  if (!container) return;
+  container.innerHTML = "";
+  currentRobots.forEach((r, idx) => {
+    const slotNum = r.id || idx + 1;
+    const card = document.createElement("div");
+    card.className = `robot-chip-card slot-${slotNum}`;
+    const isAssigned = !!r.slot || !!r.client_id;
+    const assignedLabel = isAssigned ? `📱 Irányítva (#${r.slot || slotNum})` : (r.status === "running" ? "Fut" : "Kész (Ready)");
+    const batteryIcon = r.battery > 50 ? "🔋" : (r.battery > 20 ? "🪫" : "⚠️");
+    card.innerHTML = `
+      <div class="r-top">
+        <span class="r-badge r${slotNum}">${slotNum}. Robot</span>
+        <span class="r-battery">${batteryIcon} ${r.battery}%</span>
+      </div>
+      <div class="r-name" title="${r.name}">${r.name}</div>
+      <div class="r-sub" style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+        <span>${assignedLabel} &bull; ${r.voltage || 4.0}V</span>
+        <button class="sm xs-btn" onclick="identifyRobot(${slotNum})" title="Azonosítás">💡</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function identifyRobot(id) {
+  fetch(`/api/robots/${id}/identify`, { method: "POST" }).catch(() => {});
+  playTone(600, "sine", 0.08, 0.15);
+}
+
+function handleSelfInfo(info) {
+  if (!info) return;
+  if (info.role === "controller") {
+    const banner = $("mobile-assigned-banner");
+    const title = $("assigned-slot-title");
+    const desc = $("assigned-slot-desc");
+    const slot = info.slot || 1;
+    const colName = (info.color && info.color.name) || (slot === 1 ? "Piros" : (slot === 2 ? "Zöld" : "Kék"));
+    if (banner) {
+      banner.hidden = false;
+      banner.style.borderColor = (info.color && info.color.hex) || "var(--r1)";
+    }
+    if (title) {
+      title.textContent = currentLang === "hu" ?
+        `Te vagy a(z) ${slot}. Robot (${colName}) irányítója!` :
+        `You control Robot #${slot} (${(info.color && info.color.en) || "Red"})!`;
+    }
+    if (desc) {
+      desc.textContent = currentLang === "hu" ?
+        `A robot LED mátrixán világít a számod: ${slot}. Használd a lenti botkormányt!` :
+        `Robot #${slot} displays your number on its matrix. Steer using the joystick below!`;
+    }
+
+    document.querySelectorAll(".bot-chip").forEach(chip => {
+      chip.classList.toggle("active", chip.dataset.bot === String(slot));
+    });
+
+    const content = $("content-joystick");
+    if (content) content.hidden = false;
+  }
+}
+
+function handleControllerConnected(data) {
+  const isAutoMap = localStorage.getItem("auto_map_on_connect") !== "false";
+  if (isAutoMap && data && data.auto_map !== false) {
+    const arena = $("panel-arena");
+    if (arena) {
+      arena.style.boxShadow = "0 0 24px rgba(56, 139, 253, 0.85)";
+      setTimeout(() => { if (arena) arena.style.boxShadow = ""; }, 1800);
+      arena.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+}
+
+function toggleDropdown(name) {
+  const content = $(`content-${name}`);
+  const arrow = $(`arrow-${name}`);
+  if (!content) return;
+  const isHidden = content.hidden;
+  content.hidden = !isHidden;
+  if (arrow) arrow.classList.toggle("open", isHidden);
+}
+
+function toggleQrBox() {
+  const content = $("qr-expand-content");
+  const arrow = $("qr-toggle-icon");
+  if (!content) return;
+  const isHidden = content.style.display === "none";
+  content.style.display = isHidden ? "block" : "none";
+  if (arrow) arrow.classList.toggle("open", isHidden);
+}
+
+function onSelectShow(val) {
+  ["neu", "dance", "roam"].forEach(id => {
+    const card = $(`card-show-${id}`);
+    if (card) card.hidden = (id !== val);
+  });
+}
+
+function onSelectGame(val) {
+  const ttt = $("card-game-tictactoe");
+  const party = $("card-game-party");
+  if (val === "tictactoe") {
+    if (ttt) ttt.hidden = false;
+    if (party) party.hidden = true;
+  } else {
+    if (ttt) ttt.hidden = true;
+    if (party) {
+      party.hidden = false;
+      const titles = {
+        potato: "Forró Krumpli (Hot Potato)",
+        mole: "Vakondvadászat (Whack-a-Mole)",
+        simon: "Simon Mondja (Simon Says)",
+        rps: "Kő-Papír-Olló (Rock-Paper-Scissors)",
+      };
+      const titleEl = $("party-title");
+      if (titleEl) titleEl.textContent = titles[val] || val;
+      const startBtn = $("party-start");
+      if (startBtn) startBtn.onclick = () => startProgram(val);
+    }
+  }
+}
+
+function openAdminModal() {
+  const m = $("modal-admin-settings");
+  if (m) m.hidden = false;
+}
+
+function closeAdminModal() {
+  const m = $("modal-admin-settings");
+  if (m) m.hidden = true;
+}
+
+function onToggleAutoMap(checked) {
+  localStorage.setItem("auto_map_on_connect", checked ? "true" : "false");
+  fetch("/api/settings/auto-map", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: checked }),
+  }).catch(() => {});
 }
 
 function connectCustomServer(hostUrl) {
@@ -2495,6 +2660,24 @@ function connect() {
 }
 
 // Initial setup
+if ($("btn-refresh-robots")) {
+  $("btn-refresh-robots").onclick = () => {
+    fetch("/api/robots/refresh", { method: "POST" })
+      .then(r => r.json())
+      .then(d => { if (d.robots) renderRobotPool(d.robots); })
+      .catch(() => {});
+  };
+}
+if ($("btn-identify-all")) {
+  $("btn-identify-all").onclick = () => {
+    [1, 2, 3].forEach((id, i) => {
+      setTimeout(() => identifyRobot(id), i * 350);
+    });
+  };
+}
+if ($("btn-admin-settings")) {
+  $("btn-admin-settings").onclick = openAdminModal;
+}
 renderLetters();
 renderGame();
 initClientRobots(3);

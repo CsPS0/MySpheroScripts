@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -55,9 +55,9 @@ PROGRAMS = {
         "moves": True,
     },
     "neu": {
-        "title": "NEU Formation",
-        "description": "After aiming, the robots turn in place one by one and show "
-                       "N, E, U with the tops of the letters pointing west (left). "
+        "title": "Neumann Formation",
+        "description": "After aiming, the robots turn in place and scroll the full NEUMANN "
+                       "school name across their 8x8 matrix displays with glowing LEDs. "
                        "Holds until Stop.",
         "args": ["neu.py"],
         "moves": True,
@@ -109,6 +109,14 @@ DRIVE_KEYS = {"KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft
 STOP_GRACE = 15     # seconds after Ctrl+C before the program is terminated
 
 
+ROBOT_COLORS = {
+    1: {"r": 255, "g": 59, "b": 59, "hex": "#ff3b3b", "name": "Piros", "en": "Red"},
+    2: {"r": 46, "g": 204, "b": 113, "hex": "#2ecc71", "name": "Zöld", "en": "Green"},
+    3: {"r": 52, "g": 152, "b": 219, "hex": "#3498db", "name": "Kék", "en": "Blue"},
+    4: {"r": 241, "g": 196, "b": 15, "hex": "#f1c40f", "name": "Sárga", "en": "Yellow"},
+}
+
+
 class Runner:
     def __init__(self):
         self.proc = None
@@ -117,17 +125,163 @@ class Runner:
         self.last_exit = None          # (program, exit code)
         self.log = collections.deque(maxlen=1500)
         self.clients = set()
-        self.client_meta = {}          # ws -> {"id": cid, "ip": ip, "connected_at": t, "last_active": t, "role": role}
+        self.client_meta = {}          # ws -> {"id": cid, "ip": ip, "connected_at": t, "last_active": t, "role": role, "slot": None}
         self.client_counter = 0
-        self.max_controllers = 3
-        self.idle_timeout = 300        # 5 minutes (300 seconds)
+        self.max_controllers = int(os.environ.get("MAX_CONTROLLERS", "3"))
+        self.idle_timeout = int(os.environ.get("IDLE_TIMEOUT", "300"))        # 5 minutes default
         self.keys = {}                 # websocket -> (set of key codes, turbo)
         self.game = None               # latest tic-tac-toe state
         self.telemetry = None          # latest 2D arena telemetry
+        self.robots = []               # list of robot dicts in pool
+        self.auto_map_on_connect = True # auto switch/focus map on laptop screen when phone connects
         self.simulation = os.environ.get("SPHERO_SIM", "1").lower() in ("1", "true", "yes")
         if not sphero_ble.list_adapters():
             self.simulation = True
         self.lock = asyncio.Lock()
+
+    def get_robot_pool(self):
+        return self.robots
+
+    async def broadcast_robot_pool(self):
+        await self.broadcast({"type": "robot_pool", "robots": self.get_robot_pool()})
+
+    async def init_robot_pool(self):
+        self.robots = []
+        if self.simulation:
+            try:
+                import sphero_sim
+                sim = sphero_sim.SimulatorManager.get()
+                specs = [
+                    ("BOLT-1", "SB-3FF5", 1),
+                    ("BOLT-2", "SB-034E", 2),
+                    ("BOLT-3", "SB-61A9", 3),
+                ]
+                cache_map = {}
+                for name, alias, slot_idx in specs:
+                    toy = sim.get_toy(alias)
+                    v = toy.get_battery_voltage() if hasattr(toy, "get_battery_voltage") else 4.02
+                    pct = toy.get_battery_percentage() if hasattr(toy, "get_battery_percentage") else 95
+                    col = ROBOT_COLORS.get(slot_idx, ROBOT_COLORS[1])
+                    cache_map[name] = toy.address
+                    cache_map[alias] = toy.address
+                    self.robots.append({
+                        "id": slot_idx,
+                        "name": f"{name} ({alias})",
+                        "raw_name": alias,
+                        "address": toy.address,
+                        "battery": pct,
+                        "voltage": round(v, 2),
+                        "status": "ready",
+                        "slot": None,
+                        "client_id": None,
+                        "color": col,
+                    })
+                sphero_ble.save_cached_bolts(cache_map)
+                await self.add_line(f"Robot pool kész: {len(self.robots)} robot készen áll [Szimuláció].")
+            except Exception as e:
+                await self.add_line(f"Szimulált robot pool hiba: {e}")
+        else:
+            try:
+                found = sphero_ble.scan_bolts(timeout=3.0)
+                cache_map = {}
+                if not found:
+                    found = [("SB-3FF5", "D4:22:CD:00:3F:F5", -60), ("SB-034E", "D4:22:CD:00:03:4E", -65), ("SB-61A9", "D4:22:CD:00:61:A9", -70)]
+                for idx, item in enumerate(found[:max(3, self.max_controllers)]):
+                    name, addr = item[0], item[1]
+                    slot_idx = idx + 1
+                    col = ROBOT_COLORS.get(slot_idx, ROBOT_COLORS[1])
+                    cache_map[name] = addr
+                    cache_map[f"BOLT-{slot_idx}"] = addr
+                    self.robots.append({
+                        "id": slot_idx,
+                        "name": f"BOLT-{slot_idx} ({name})",
+                        "raw_name": name,
+                        "address": addr,
+                        "battery": max(15, 96 - idx * 5),
+                        "voltage": round(4.14 - idx * 0.08, 2),
+                        "status": "ready",
+                        "slot": None,
+                        "client_id": None,
+                        "color": col,
+                    })
+                sphero_ble.save_cached_bolts(cache_map)
+                await self.add_line(f"Robot pool kész: {len(self.robots)} Sphero robot felderítve és gyorsítótárazva.")
+            except Exception as e:
+                await self.add_line(f"Bluetooth scan notice ({e}).")
+        await self.broadcast_robot_pool()
+
+    async def assign_controller(self, ws, cid):
+        active = [m for m in self.client_meta.values() if m.get("role") == "controller"]
+        slot_num = len(active)
+        self.client_meta[ws]["slot"] = slot_num
+        col = ROBOT_COLORS.get(slot_num, ROBOT_COLORS[1])
+
+        robot = None
+        if slot_num <= len(self.robots):
+            robot = self.robots[slot_num - 1]
+            robot["slot"] = slot_num
+            robot["client_id"] = cid
+            robot["status"] = "assigned"
+
+            if self.simulation:
+                try:
+                    import sphero_sim
+                    from spherov2.types import Color
+                    sim = sphero_sim.SimulatorManager.get()
+                    c = Color(col["r"], col["g"], col["b"])
+                    toy = sim.get_toy(robot.get("raw_name", robot["name"]))
+                    toy.set_matrix_character(str(slot_num), c)
+                    toy.front_led = c
+                except Exception:
+                    pass
+
+        await self.broadcast_robot_pool()
+        await self.add_line(f"📱 Telefon csatlakozott (Slot #{slot_num}) -> Robot #{slot_num} ({col['name']}) hozzárendelve.")
+        return {
+            "slot": slot_num,
+            "robot_name": robot["name"] if robot else f"BOLT-{slot_num}",
+            "color": col,
+        }
+
+    async def release_controller(self, cid):
+        released_slot = None
+        for r in self.robots:
+            if r.get("client_id") == cid:
+                released_slot = r.get("slot")
+                r["slot"] = None
+                r["client_id"] = None
+                r["status"] = "ready"
+                if self.simulation:
+                    try:
+                        import sphero_sim
+                        from spherov2.types import Color
+                        sim = sphero_sim.SimulatorManager.get()
+                        toy = sim.get_toy(r.get("raw_name", r["name"]))
+                        toy.clear_matrix()
+                        toy.front_led = Color(0, 0, 0)
+                    except Exception:
+                        pass
+                break
+        await self.broadcast_robot_pool()
+        if released_slot:
+            await self.add_line(f"📱 Telefon levált (Slot #{released_slot}) -> Robot #{released_slot} mátrix visszaállítva.")
+
+    async def identify_robot(self, robot_id: int):
+        r = next((x for x in self.robots if x["id"] == robot_id), None)
+        if r:
+            col = r["color"]
+            if self.simulation:
+                try:
+                    import sphero_sim
+                    from spherov2.types import Color
+                    sim = sphero_sim.SimulatorManager.get()
+                    toy = sim.get_toy(r.get("raw_name", r["name"]))
+                    c = Color(col["r"], col["g"], col["b"])
+                    toy.set_matrix_character(str(robot_id), c)
+                    toy.front_led = c
+                except Exception:
+                    pass
+            await self.add_line(f"💡 Robot #{robot_id} azonosítás: villogás {col['name']} fénnyel.")
 
     def get_controller_list(self):
         now = time.time()
@@ -169,6 +323,7 @@ class Runner:
             self.clients.discard(target_ws)
             self.client_meta.pop(target_ws, None)
             self.keys.pop(target_ws, None)
+            await self.release_controller(client_id)
             await self.send_keys()
             await self.broadcast_clients()
             await self.add_line(f"Eszköz lekapcsolva a gazda által: {target_meta.get('ip', client_id)}")
@@ -194,6 +349,7 @@ class Runner:
                 self.clients.discard(ws)
                 self.client_meta.pop(ws, None)
                 self.keys.pop(ws, None)
+                await self.release_controller(meta["id"])
                 await self.add_line(f"Eszköz lekapcsolva inaktivitás miatt (5 perc): {meta.get('ip')}")
             if to_kick:
                 await self.send_keys()
@@ -398,6 +554,7 @@ runner = Runner()
 @contextlib.asynccontextmanager
 async def lifespan(app):
     watchdog_task = asyncio.create_task(runner.watchdog())
+    await runner.init_robot_pool()
     yield
     watchdog_task.cancel()
     await runner.stop()        # container stop: let the program stop the robots
@@ -575,12 +732,14 @@ async def shake(action: dict):
 
 
 @app.get("/api/info")
-async def get_info():
+async def get_info(request: Request):
     ip = get_local_ip()
+    proto = request.url.scheme
+    port = request.url.port or (443 if proto == "https" else 80)
     return {
         "local_ip": ip,
-        "port": 8080,
-        "url": f"http://{ip}:8080",
+        "port": port,
+        "url": f"{proto}://{ip}:{port}",
         "controllers_connected": len(runner.get_controller_list()),
         "max_controllers": runner.max_controllers,
     }
@@ -600,6 +759,30 @@ async def kick_client_endpoint(client_id: str):
     return {"ok": kicked}
 
 
+@app.get("/api/robots")
+async def get_robots_endpoint():
+    return {"robots": runner.get_robot_pool()}
+
+
+@app.post("/api/robots/refresh")
+async def refresh_robots_endpoint():
+    await runner.init_robot_pool()
+    return {"ok": True, "robots": runner.get_robot_pool()}
+
+
+@app.post("/api/robots/{robot_id}/identify")
+async def identify_robot_endpoint(robot_id: int):
+    await runner.identify_robot(robot_id)
+    return {"ok": True}
+
+
+@app.post("/api/settings/auto-map")
+async def set_auto_map_endpoint(data: dict):
+    runner.auto_map_on_connect = bool(data.get("enabled", True))
+    await runner.broadcast({"type": "settings", "auto_map": runner.auto_map_on_connect})
+    return {"ok": True, "auto_map": runner.auto_map_on_connect}
+
+
 @app.websocket("/ws")
 async def websocket(ws: WebSocket):
     client_ip = ws.client.host if ws.client else "unknown"
@@ -611,7 +794,7 @@ async def websocket(ws: WebSocket):
         await ws.send_json({
             "type": "error",
             "code": "MAX_CLIENTS",
-            "message": "Már 3 eszköz csatlakozott a robotokhoz. Kérlek várj egy kicsit! (Max 3 controllers active)",
+            "message": f"Már {runner.max_controllers} eszköz csatlakozott a robotokhoz. Kérlek várj egy kicsit! (Max {runner.max_controllers} controllers active)",
         })
         await asyncio.sleep(0.5)
         await ws.close(code=1008)
@@ -627,14 +810,36 @@ async def websocket(ws: WebSocket):
         "role": role,
         "connected_at": time.time(),
         "last_active": time.time(),
+        "slot": None,
     }
+
+    slot_info = None
+    if role == "controller":
+        slot_info = await runner.assign_controller(ws, cid)
 
     await ws.send_json(runner.status())
     await ws.send_json({"type": "history", "lines": list(runner.log)})
     await ws.send_json({"type": "game", "state": runner.game})
     await ws.send_json({"type": "telemetry", "data": runner.get_current_telemetry()})
-    await ws.send_json({"type": "self_info", "client_id": cid, "role": role})
+    await ws.send_json({"type": "robot_pool", "robots": runner.get_robot_pool()})
+    await ws.send_json({
+        "type": "self_info",
+        "client_id": cid,
+        "role": role,
+        "slot": slot_info.get("slot") if slot_info else None,
+        "color": slot_info.get("color") if slot_info else None,
+        "robot_name": slot_info.get("robot_name") if slot_info else None,
+    })
+    await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect})
     await runner.broadcast_clients()
+
+    if role == "controller":
+        await runner.broadcast({
+            "type": "controller_connected",
+            "client_id": cid,
+            "slot": slot_info.get("slot") if slot_info else 1,
+            "auto_map": runner.auto_map_on_connect,
+        })
 
     try:
         while True:
@@ -652,7 +857,8 @@ async def websocket(ws: WebSocket):
             elif msg_type == "joystick":
                 h = int(msg.get("heading", 0)) % 360
                 s = max(0.0, min(255.0, float(msg.get("speed", 0))))
-                r = int(msg.get("robot", 1))
+                assigned_slot = runner.client_meta.get(ws, {}).get("slot", 1)
+                r = int(msg.get("robot") or assigned_slot)
                 await runner.send_line(f"drive {r} {h} {s:.1f}\n", "drive")
             elif msg_type == "kick":
                 target_id = msg.get("client_id")
@@ -662,7 +868,46 @@ async def websocket(ws: WebSocket):
         pass
     finally:
         runner.clients.discard(ws)
-        runner.client_meta.pop(ws, None)
+        meta = runner.client_meta.pop(ws, None)
         runner.keys.pop(ws, None)
+        if meta and meta.get("role") == "controller":
+            await runner.release_controller(meta["id"])
         await runner.send_keys()
         await runner.broadcast_clients()
+
+
+if __name__ == "__main__":
+    import argparse
+    import uvicorn
+
+    certs_dir = Path(__file__).resolve().parent / "certs"
+    default_cert = str(certs_dir / "cert.pem")
+    default_key = str(certs_dir / "key.pem")
+
+    parser = argparse.ArgumentParser(description="Sphero Web Server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host interface (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
+    parser.add_argument("--max-controllers", type=int, default=3, help="Max simultaneous mobile controllers (default: 3)")
+    parser.add_argument("--idle-timeout", type=int, default=300, help="Controller inactivity timeout in seconds (default: 300)")
+    parser.add_argument("--ssl", action="store_true", help="Enable HTTPS using SSL certificates")
+    parser.add_argument("--ssl-cert", default=default_cert, help="SSL certificate file path")
+    parser.add_argument("--ssl-key", default=default_key, help="SSL key file path")
+    args = parser.parse_args()
+
+    runner.max_controllers = args.max_controllers
+    runner.idle_timeout = args.idle_timeout
+
+    ssl_kwargs = {}
+    if args.ssl:
+        if not Path(args.ssl_cert).exists() or not Path(args.ssl_key).exists():
+            print(f"[!] SSL certs not found at {args.ssl_cert}. Please generate them or run without --ssl.")
+            sys.exit(1)
+        ssl_kwargs["ssl_certfile"] = args.ssl_cert
+        ssl_kwargs["ssl_keyfile"] = args.ssl_key
+        print(f"[*] Running with HTTPS on https://{args.host}:{args.port}")
+    else:
+        print(f"[*] Running with HTTP on http://{args.host}:{args.port}")
+
+    uvicorn.run(app, host=args.host, port=args.port, **ssl_kwargs)
+
+
