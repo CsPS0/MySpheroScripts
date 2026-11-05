@@ -9,476 +9,390 @@
 </head>
 <body>
 
-<header class="app-header">
-  <div class="header-top">
-    <div class="brand">
-      <span class="brand-icon"></span>
-      <h1>Sphero BOLT <span class="brand-sub">&bull; Neumann</span></h1>
-    </div>
+<!-- SVG icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M23 9l-6 6M17 9l6 6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-log" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V16h8v-1.26A7 7 0 0 0 12 2z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-joy" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+</svg>
 
-    <div class="header-actions">
-      <button id="lang-toggle" class="sm" title="Nyelv / Language">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>
-        <span id="lang-label">HU</span>
-      </button>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span class="brand-name">Sphero BOLT</span>
+    <span class="brand-sub">Neumann</span>
+  </div>
 
-      <span id="status" class="pill offline" title="Kattints a csatlakozáshoz"><span class="dot"></span><span id="status-text">Offline</span></span>
+  <div class="topbar-status">
+    <button id="status" class="pill offline" type="button" data-i18n-title="status_hint">
+      <span class="dot"></span><span id="status-text">Offline</span>
+    </button>
+    <span id="robots-pill" class="pill host-only"><span class="dot"></span><span id="robots-pill-text">0 robot</span></span>
+    <span id="phones-pill" class="pill host-only"><span class="dot"></span><span id="phones-pill-text">0 / 3 telefon</span></span>
+  </div>
 
-      <span id="robots-pill" class="pill online" title="Csatlakoztatott robotok száma"><span class="dot"></span><span id="robots-pill-text">3 / 3 Robot</span></span>
-
-      <span id="slots-badge-header" class="pill" title="Csatlakoztatott telefonok"><span class="dot"></span><span id="slots-header-text">0 / 3 Telefon</span></span>
-      
-      <button id="btn-admin-settings" class="sm" title="Gazda Beállítások">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span data-i18n="admin_btn">Beállítások</span>
-      </button>
-
-      <button id="btn-bluetooth" class="sm primary" style="background:#1f6feb; border-color:#388bfd;" title="Bluetooth Csatlakozás">
-        <svg class="icon" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-        <span data-i18n="connect_btn">Csatlakozás</span>
-      </button>
-
-      <button id="sound-toggle" class="sm" title="Hang ki/be">
-        <svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        <span id="sound-label" data-i18n="sound_on">Hang BE</span>
-      </button>
-
-      <button id="global-stop" class="stop sm" disabled data-i18n="stop">Leállítás</button>
-    </div>
+  <div class="topbar-actions">
+    <button id="btn-bluetooth" class="ghost" type="button" hidden>
+      <svg class="icon"><use href="#i-bt"/></svg><span data-i18n="connect_btn">Csatlakozás</span>
+    </button>
+    <button id="btn-log" class="ghost host-only" type="button" data-i18n-title="log_title">
+      <svg class="icon"><use href="#i-log"/></svg><span class="hide-sm" data-i18n="log_btn">Napló</span>
+      <span id="log-badge" class="count-badge" hidden>0</span>
+    </button>
+    <button id="btn-admin-login" class="ghost" type="button" hidden>
+      <svg class="icon"><use href="#i-lock"/></svg><span data-i18n="admin_login_btn">Admin</span>
+    </button>
+    <button id="lang-toggle" class="ghost" type="button" title="Nyelv / Language">
+      <svg class="icon"><use href="#i-globe"/></svg><span id="lang-label">HU</span>
+    </button>
+    <button id="sound-toggle" class="ghost icon-only" type="button" data-i18n-title="sound_title">
+      <svg class="icon"><use id="sound-icon" href="#i-sound"/></svg>
+    </button>
+    <button id="btn-admin-settings" class="ghost icon-only host-only" type="button" data-i18n-title="admin_btn">
+      <svg class="icon"><use href="#i-gear"/></svg>
+    </button>
+    <button id="global-stop" class="stop host-only" type="button" disabled>
+      <svg class="icon"><use href="#i-stop"/></svg><span data-i18n="stop">Leállítás</span>
+    </button>
   </div>
 </header>
 
-<main class="dashboard-layout">
+<!-- Running program strip -->
+<div id="running-strip" class="running-strip host-only" hidden>
+  <span class="dot"></span>
+  <span id="running-text">Fut</span>
+  <button id="running-stop" class="stop sm" type="button"><svg class="icon"><use href="#i-stop"/></svg><span data-i18n="stop">Leállítás</span></button>
+</div>
 
-  <!-- ==================== LEFT PANEL: 2D ARENA / MAP ==================== -->
-  <aside id="panel-arena" class="dashboard-col dashboard-col-left">
-    <div class="col-header">
-      <div class="col-title">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-        <h3 data-i18n="arena_title">Élő Robot Aréna</h3>
+<main class="layout">
+
+  <!-- ==================== LEFT: ARENA + PHONES ==================== -->
+  <div class="col col-left host-only">
+    <section id="panel-arena" class="panel">
+      <div class="panel-head">
+        <h2><svg class="icon"><use href="#i-map"/></svg><span data-i18n="arena_title">Aréna</span></h2>
+        <div class="panel-tools">
+          <label class="check-tool"><input type="checkbox" id="arena-trails" checked><span data-i18n="arena_trails">Nyomvonal</span></label>
+          <button id="arena-reset" class="ghost sm" type="button" data-i18n="arena_clear">Törlés</button>
+        </div>
       </div>
-      <div class="col-tools">
-        <label class="check-tool" title="Nyomvonal rajzolása">
-          <input type="checkbox" id="arena-trails" checked>
-          <span data-i18n="arena_trails">Nyomvonal</span>
-        </label>
-        <button id="arena-reset" class="sm xs-btn" title="Középre igazítás" data-i18n="arena_recenter">Középre</button>
-        <button id="arena-shake-all" class="sm xs-btn" title="Megrázás szimulálása">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M2 12h3l2-4 3 8 3-8 2 4h4"/></svg>
+      <div class="arena-wrapper">
+        <canvas id="arena-canvas" width="460" height="460"></canvas>
+      </div>
+      <p id="arena-stats" class="muted small center">&nbsp;</p>
+    </section>
+
+    <details id="panel-phones" class="panel collapsible" open>
+      <summary class="panel-head">
+        <h2><svg class="icon"><use href="#i-phone"/></svg><span data-i18n="phones_title">Telefonos irányítás</span></h2>
+        <span id="slots-badge" class="chip">0 / 3</span>
+      </summary>
+      <div class="phones-body">
+        <div class="qr-col">
+          <div id="qrcode-box" class="qr-frame"></div>
+          <div id="qr-url-text" class="qr-url">&nbsp;</div>
+        </div>
+        <div class="phones-col">
+          <ol class="steps">
+            <li data-i18n="qr_step_1">Olvasd be a QR-kódot a telefon kamerájával.</li>
+            <li data-i18n="qr_step_2">A telefon kap egy számot: 1 piros, 2 zöld, 3 kék.</li>
+            <li data-i18n="qr_step_3">Indítsd el a Vezetést, és a botkormánnyal irányíthatsz.</li>
+          </ol>
+          <div id="connected-devices-list" class="device-list"></div>
+          <div id="drive-hint" class="hint-row" hidden>
+            <span data-i18n="drive_hint">Telefon csatlakozott, de a Vezetés nem fut.</span>
+            <button class="primary sm" type="button" onclick="startProgram('drive')" data-i18n="btn_start_drive">Vezetés indítása</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ==================== RIGHT: CONTROLS + FLEET ==================== -->
+  <div class="col col-main">
+
+    <!-- Phone controller banner (only on phones) -->
+    <section id="mobile-assigned-banner" class="assigned-banner" hidden>
+      <span id="assigned-num" class="assigned-num">1</span>
+      <div>
+        <div id="assigned-slot-title" class="assigned-title"></div>
+        <div id="assigned-slot-desc" class="assigned-sub"></div>
+      </div>
+    </section>
+    <div id="controller-wait" class="notice" hidden data-i18n="controller_wait">
+      Várj, amíg a bemutató vezetője elindítja a Vezetést.
+    </div>
+
+    <section class="panel control-panel">
+      <div class="tabs host-only" role="tablist">
+        <button class="tab active" type="button" data-tab="drive" role="tab">
+          <svg class="icon"><use href="#i-joy"/></svg><span data-i18n="tab_drive">Vezetés</span>
+        </button>
+        <button class="tab" type="button" data-tab="shows" role="tab">
+          <svg class="icon"><use href="#i-star"/></svg><span data-i18n="tab_shows">Műsorok</span>
+        </button>
+        <button class="tab" type="button" data-tab="games" role="tab">
+          <svg class="icon"><use href="#i-grid"/></svg><span data-i18n="tab_games">Játékok</span>
         </button>
       </div>
-    </div>
 
-    <div class="arena-wrapper">
-      <canvas id="arena-canvas" width="460" height="460"></canvas>
-    </div>
-
-    <div id="arena-stats" class="arena-legend">
-      <span>Robotok: 3 aktív | Padló méretarány: 2.2x</span>
-    </div>
-  </aside>
-
-  <!-- ==================== CENTER PANEL: CONTROLS & PROGRAMS ==================== -->
-  <section class="dashboard-col dashboard-col-center">
-
-    <!-- Mobile Assigned Controller Banner (active when phone connects) -->
-    <div id="mobile-assigned-banner" class="assigned-controller-card" hidden>
-      <div class="assigned-icon">🎮</div>
-      <div class="assigned-text">
-        <div id="assigned-slot-title" class="assigned-title">Te vagy az 1. Robot (Piros) irányítója!</div>
-        <div id="assigned-slot-desc" class="assigned-sub">A robot kijelzőjén megjelent a számod. Használd a lenti botkormányt a vezetéshez!</div>
-      </div>
-    </div>
-
-    <!-- Quick Host & QR Bar -->
-    <div class="host-strip card">
-      <div class="strip-header" onclick="toggleQrBox()">
-        <div class="strip-title">
-          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <span data-i18n="qr_connect_title">Telefon Csatlakozás (QR Kód & Irányítók)</span>
-        </div>
-        <div class="strip-badges">
-          <span id="slots-badge" class="device-slots-pill">0 / 3 telefon</span>
-          <span id="qr-toggle-icon" class="toggle-arrow">&#9662;</span>
-        </div>
-      </div>
-
-      <div id="qr-expand-content" class="strip-content">
-        <div class="qr-flex-row">
-          <div class="qr-box-wrapper">
-            <div id="qrcode-box" class="qr-frame"></div>
-            <div id="qr-url-text" class="qr-url-badge">http://...</div>
+      <!-- TAB: DRIVE -->
+      <div id="tab-drive" class="tab-page active">
+        <div class="drive-layout">
+          <div id="joy-base" class="joystick-base">
+            <div class="joystick-ring"></div>
+            <div id="joy-knob" class="joystick-knob"></div>
           </div>
-          <div class="qr-devices-panel">
-            <h4 data-i18n="connected_phones_title">Csatlakoztatott eszközök:</h4>
-            <div id="connected-devices-list" class="device-list">
-              <div class="no-dev-msg" data-i18n="no_devices_msg">Nincs aktív telefon csatlakoztatva. Olvasd be a QR-kódot!</div>
+          <div class="drive-side">
+            <div class="hud">
+              <div class="hud-box"><div class="label" data-i18n="hud_heading">Irány</div><div id="hud-heading" class="val">0°</div></div>
+              <div class="hud-box"><div class="label" data-i18n="hud_throttle">Sebesség</div><div id="hud-speed" class="val">0%</div></div>
             </div>
-            <div class="qr-hints" data-i18n="qr_help_hint">
-              A telefonodon azonnal megjelenik a virtuális joystick. Max 3 telefon egyidejűleg.
+            <div class="host-only">
+              <div class="field-label" data-i18n="steer_robot">Melyik robotot vezeted?</div>
+              <div id="bot-selector" class="segmented"></div>
             </div>
+            <button id="btn-start-drive" class="primary block host-only" type="button" onclick="startProgram('drive')">
+              <svg class="icon"><use href="#i-play"/></svg><span data-i18n="btn_start_drive">Vezetés indítása</span>
+            </button>
+            <p class="muted small" data-i18n="drive_controls_hint">Húzd a botkormányt ujjal vagy egérrel. Billentyűzeten: W A S D vagy nyilak.</p>
+          </div>
+        </div>
+
+        <div id="calib-box" class="calib-box">
+          <div class="calib-head">
+            <b><span data-i18n="calib_title">Kalibrálás</span> <span id="calib-robot" class="muted"></span></b>
+            <span id="calib-val" class="mono">0°</span>
+          </div>
+          <div class="calib-row">
+            <button id="calib-minus" class="ghost sm" type="button">&minus;15&deg;</button>
+            <input type="range" id="calib-slider" min="-180" max="180" step="5" value="0">
+            <button id="calib-plus" class="ghost sm" type="button">+15&deg;</button>
+          </div>
+          <div class="calib-foot">
+            <small id="calib-hint" class="muted" data-i18n="calib_hint">Állj a robot mögé, és húzd a csúszkát, amíg a nyíl és a fehér fény tőled előre mutat. Utána a botkormány felfelé mindig előre visz.</small>
+            <button id="calib-reset" class="ghost sm" type="button" data-i18n="calib_reset">Nullázás</button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Robot Fleet & Battery Status Card -->
-    <div class="card robot-fleet-card">
-      <div class="card-header" style="margin-bottom:8px;">
-        <div class="strip-title">
-          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          <span data-i18n="fleet_title">Robot Flotta & Akkumulátor</span>
+      <!-- TAB: SHOWS -->
+      <div id="tab-shows" class="tab-page">
+        <div id="show-list" class="option-list"></div>
+        <div id="neu-settings" class="settings-box">
+          <div class="hand-row">
+            <button id="hand-lock" class="ghost" type="button">
+              <svg class="icon"><use href="#i-lock"/></svg><span id="hand-lock-label">Kézi forgatás</span>
+            </button>
+            <small id="hand-hint" class="muted"></small>
+          </div>
+          <div id="auto-controls">
+            <div class="field-label" data-i18n="align_label">Igazítás</div>
+            <div id="align-seg" class="segmented">
+              <button class="seg" type="button" data-align="compass" data-i18n="align_compass">Iránytű: mind északra</button>
+              <button class="seg" type="button" data-align="aim" data-i18n="align_aim">Kézi célzás</button>
+            </div>
+            <small id="align-hint" class="muted"></small>
+          </div>
+          <label class="slider-row auto-only">
+            <span data-i18n="target_heading">Célirány</span>
+            <input type="range" id="heading-slider" min="0" max="359" step="1" value="0">
+            <span id="heading-val" class="mono">0°</span>
+          </label>
+          <div>
+            <div class="field-label" data-i18n="letters_each">Betűk egyenként</div>
+            <small class="muted" data-i18n="letters_each_hint">Betű: a kijelzőn forgat 90°-kal. Robot: az egész robotot fordítja 15°-kal, ha ferdén áll.</small>
+            <div id="letter-rows"></div>
+          </div>
         </div>
-        <div style="display:flex; gap:6px;">
-          <button id="btn-refresh-robots" class="sm" title="Robotok újraolvasása" data-i18n="btn_refresh_pool">🔄 Frissítés</button>
-          <button id="btn-identify-all" class="sm" title="Mátrix számok felvillantása" data-i18n="btn_identify_all">💡 Azonosítás</button>
+        <div id="dance-settings" class="settings-box" hidden>
+          <div id="dance-live" class="dance-live" hidden>
+            <span id="dance-status" class="game-status"></span>
+            <button id="dance-go" class="primary" type="button"></button>
+          </div>
+          <div class="field-label" data-i18n="dance_robots">Robotok a táncban</div>
+          <small class="muted" data-i18n="dance_robots_hint">Koppints egy számra, hogy kihagyd azt a robotot. A foglalt (máshoz csatlakozott) robotokat a tánc magától kihagyja.</small>
+          <div id="dance-robots" class="dance-robots"></div>
         </div>
+        <button id="btn-start-show" class="primary block" type="button">
+          <svg class="icon"><use href="#i-play"/></svg><span id="btn-start-show-label">Indítás</span>
+        </button>
       </div>
 
-      <div id="robot-pool-cards" class="robot-cards-grid">
-        <!-- Filled dynamically by JavaScript -->
-        <div class="robot-chip-card slot-1">
-          <div class="r-top">
-            <span class="r-badge r1">1. Robot</span>
-            <span class="r-battery">🔋 96%</span>
-          </div>
-          <div class="r-name">BOLT-1 (SB-3FF5)</div>
-          <div class="r-sub">Állapot: Kész &bull; 4.14V</div>
-        </div>
-        <div class="robot-chip-card slot-2">
-          <div class="r-top">
-            <span class="r-badge r2">2. Robot</span>
-            <span class="r-battery">🔋 91%</span>
-          </div>
-          <div class="r-name">BOLT-2 (SB-034E)</div>
-          <div class="r-sub">Állapot: Kész &bull; 4.02V</div>
-        </div>
-        <div class="robot-chip-card slot-3">
-          <div class="r-top">
-            <span class="r-badge r3">3. Robot</span>
-            <span class="r-battery">🔋 88%</span>
-          </div>
-          <div class="r-name">BOLT-3 (SB-61A9)</div>
-          <div class="r-sub">Állapot: Kész &bull; 3.96V</div>
-        </div>
-      </div>
-    </div>
+      <!-- TAB: GAMES -->
+      <div id="tab-games" class="tab-page">
+        <div id="game-list" class="option-list"></div>
+        <button id="btn-start-game" class="primary block" type="button">
+          <svg class="icon"><use href="#i-play"/></svg><span id="btn-start-game-label">Indítás</span>
+        </button>
 
-    <!-- ==================== PROGRAM DROPDOWNS ==================== -->
-
-    <!-- DROPDOWN 1: JOYSTICK DRIVE -->
-    <div id="section-joystick" class="program-dropdown-card card">
-      <div class="dropdown-header" onclick="toggleDropdown('joystick')">
-        <div class="dropdown-title">
-          <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-          <span data-i18n="dropdown_joystick_title">🎮 Botkormány Vezérlés (Joystick Drive)</span>
-        </div>
-        <div class="dropdown-actions">
-          <span id="badge-drive-status" class="badge moves" data-i18n="badge_drive">Irányítás</span>
-          <span id="arrow-joystick" class="toggle-arrow">&#9662;</span>
-        </div>
-      </div>
-
-      <div id="content-joystick" class="dropdown-body">
-        <div class="joystick-panel">
-          <div class="joystick-wrapper">
-            <div id="joy-base" class="joystick-base">
-              <div class="joystick-guide-ring"></div>
-              <div class="joystick-ticks">
-                <span class="joystick-tick n">0°</span>
-                <span class="joystick-tick e">90°</span>
-                <span class="joystick-tick s">180°</span>
-                <span class="joystick-tick w">270°</span>
-              </div>
-              <div id="joy-knob" class="joystick-knob">
-                <div class="joystick-knob-core"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="joystick-hud">
-            <div class="hud-metrics">
-              <div class="hud-box">
-                <div class="label" data-i18n="hud_heading">Irány</div>
-                <div id="hud-heading" class="val">0° N</div>
-              </div>
-              <div class="hud-box">
-                <div class="label" data-i18n="hud_throttle">Sebesség</div>
-                <div id="hud-speed" class="val">0%</div>
-              </div>
-              <div class="hud-box">
-                <div class="label" data-i18n="hud_mode">Üzemmód</div>
-                <div class="val" style="color:#2ecc71; font-size:1.05rem;" data-i18n="hud_mode_val">Sima RC</div>
-              </div>
-            </div>
-
-            <div class="robot-selector">
-              <label data-i18n="steer_robot">Irányított robot:</label>
-              <button class="bot-chip active" data-bot="1" style="color:var(--r1);">BOLT 1 (Piros)</button>
-              <button class="bot-chip" data-bot="2" style="color:var(--r2);">BOLT 2 (Zöld)</button>
-              <button class="bot-chip" data-bot="3" style="color:var(--r3);">BOLT 3 (Kék)</button>
-            </div>
-
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <button id="btn-start-drive" class="primary" onclick="startProgram('drive')" data-i18n="btn_start_drive">Botkormány Indítása</button>
-              <button id="btn-stop-drive" class="stop" onclick="stopCurrentProgram()" data-i18n="btn_stop_drive">Leállítás</button>
-            </div>
-
-            <p style="color:var(--muted); font-size:0.8rem; margin:8px 0 0;">
-              <b data-i18n="drive_controls_hint">Telefonon ujjhúzással, számítógépen egérrel vagy a W A S D billentyűkkel irányítható!</b>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DROPDOWN 2: SHOWS & FORMATIONS -->
-    <div id="section-shows" class="program-dropdown-card card">
-      <div class="dropdown-header">
-        <div class="dropdown-title">
-          <svg class="icon icon-lg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span data-i18n="dropdown_shows_title">🎭 Műsorok & Koreográfiák (Shows)</span>
-        </div>
-        <div class="dropdown-actions">
-          <select id="select-shows" class="program-select" onchange="onSelectShow(this.value)">
-            <option value="neu" selected>Neumann Iskolai Felirat (Neumann School Formation)</option>
-            <option value="dance">Szinkrontánc (Dance Show)</option>
-            <option value="roam">Önálló Járőrözés (Autonomous Roam)</option>
-          </select>
-          <span id="arrow-shows" class="toggle-arrow" onclick="toggleDropdown('shows')">&#9662;</span>
-        </div>
-      </div>
-
-      <div id="content-shows" class="dropdown-body">
-        <!-- Show Card: Neumann Formation -->
-        <div id="card-show-neu" class="subprogram-card">
-          <div class="card-header">
-            <div>
-              <h3 data-i18n="card_neu_title">Neumann Iskolai Felirat</h3>
-              <p data-i18n="card_neu_desc" style="color:var(--muted); font-size:0.88rem; margin:4px 0;">
-                A robotok felállnak a megfelelő pozícióba, és folyamatosan görgetik a teljes NEUMANN nevet a kijelzőjükön ragyogó fényekkel.
-              </p>
-            </div>
-            <button class="primary" onclick="startProgram('neu')" data-i18n="btn_show_neu">Neumann Indítása</button>
-          </div>
-
-          <div class="neu-editor-box">
-            <div style="font-weight:700; margin-bottom:6px;" data-i18n="neu_editor_title">Neumann Betűk & Irány Élő Beállítása</div>
-            <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-              <label style="font-size:0.85rem;">
-                <span data-i18n="target_heading">Célirány:</span>
-                <input type="range" id="heading-slider" min="0" max="359" value="270" style="vertical-align:middle; width:120px;">
-                <span id="heading-val" style="font-weight:700; color:#58a6ff;">270°</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Show Card: Dance Show -->
-        <div id="card-show-dance" class="subprogram-card" hidden>
-          <div class="card-header">
-            <div>
-              <h3 data-i18n="card_dance_title">Szinkrontánc</h3>
-              <p data-i18n="card_dance_desc" style="color:var(--muted); font-size:0.88rem; margin:4px 0;">
-                Mindhárom robot egyszerre forog, szlalomozik, alakzatot vált, a végén pedig színes szivárványfénnyel zár.
-              </p>
-            </div>
-            <button class="primary" onclick="startProgram('dance')" data-i18n="btn_start_dance">Tánc Indítása</button>
-          </div>
-        </div>
-
-        <!-- Show Card: Roam -->
-        <div id="card-show-roam" class="subprogram-card" hidden>
-          <div class="card-header">
-            <div>
-              <h3 data-i18n="card_roam_title">Önálló Bolyongás</h3>
-              <p data-i18n="card_roam_desc" style="color:var(--muted); font-size:0.88rem; margin:4px 0;">
-                Mindhárom robot szabadon pásztázza a padlót a saját 25 cm-es zónájában az akadályokat kikerülve.
-              </p>
-            </div>
-            <button class="primary" onclick="startProgram('roam')" data-i18n="btn_start_roam">Bolyongás Indítása</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DROPDOWN 3: MINIGAMES -->
-    <div id="section-games" class="program-dropdown-card card">
-      <div class="dropdown-header">
-        <div class="dropdown-title">
-          <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg>
-          <span data-i18n="dropdown_games_title">🎲 Csapatjátékok & Minigames</span>
-        </div>
-        <div class="dropdown-actions">
-          <select id="select-games" class="program-select" onchange="onSelectGame(this.value)">
-            <option value="tictactoe" selected>9 Robotos Amőba (Tic-tac-toe 3x3)</option>
-            <option value="potato">Forró Krumpli (Hot Potato)</option>
-            <option value="simon">Simon Mondja (Simon Says)</option>
-            <option value="mole">Vakondvadászat (Whack-a-Mole)</option>
-            <option value="rps">Kő-Papír-Olló (Rock-Paper-Scissors)</option>
-          </select>
-          <span id="arrow-games" class="toggle-arrow" onclick="toggleDropdown('games')">&#9662;</span>
-        </div>
-      </div>
-
-      <div id="content-games" class="dropdown-body">
-        <!-- Minigame: Tic-Tac-Toe -->
-        <div id="card-game-tictactoe" class="subprogram-card">
-          <div class="ttt-controls">
-            <span id="ttt-status" style="font-weight:700; color:#58a6ff;">9 robot a padlón 3x3-as rácsban. Koppints a mezőkre!</span>
-            <div style="display:flex; gap:8px;">
-              <button id="ttt-new" class="sm" disabled data-i18n="ttt_same_layout">Újra (Ugyanitt)</button>
-              <button id="ttt-recount" class="sm" disabled data-i18n="ttt_renumber">Újraszámozás</button>
-              <button id="ttt-start" class="primary sm" onclick="startProgram('tictactoe')" data-i18n="ttt_start">Játék Kezdése</button>
+        <div id="card-game-tictactoe" class="game-area">
+          <div class="game-bar">
+            <span id="ttt-status" class="game-status"></span>
+            <div class="btn-row">
+              <button id="ttt-new" class="ghost sm" type="button" disabled data-i18n="ttt_same_layout">Új játék</button>
+              <button id="ttt-recount" class="ghost sm" type="button" disabled data-i18n="ttt_renumber">Újraszámozás</button>
+              <button id="ttt-start" class="ghost sm" type="button" disabled data-i18n="ttt_start">Számozás kész</button>
             </div>
           </div>
           <div id="board" class="ttt-grid"></div>
         </div>
 
-        <!-- Minigame: Party Games (Potato, Mole, Simon, RPS) -->
-        <div id="card-game-party" class="subprogram-card" hidden>
-          <div class="party-header">
-            <h3 id="party-title">Játék</h3>
-            <button id="party-start" class="primary">Indítás</button>
+        <div id="card-game-party" class="game-area" hidden>
+          <div class="game-bar">
+            <span id="party-status" class="game-status"></span>
+            <button id="party-start" class="ghost sm" type="button" data-i18n="party_round">Új kör</button>
           </div>
-          <div id="party-status" style="font-weight:700; color:#58a6ff; margin-bottom:8px;"></div>
-          <div id="party-info" class="party-info-box">Koppints az Indítás gombra a kezdéshez.</div>
+          <div id="party-info" class="info-box"></div>
           <div id="balls" class="ball-grid"></div>
         </div>
       </div>
-    </div>
+    </section>
 
-  </section>
-
-  <!-- ==================== RIGHT PANEL: SYSTEM LOG (NAPLÓ) ==================== -->
-  <aside id="panel-log" class="dashboard-col dashboard-col-right">
-    <div class="col-header">
-      <div class="col-title">
-        <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <h3 data-i18n="console_title">Élő Rendszernapló</h3>
+    <!-- Fleet -->
+    <section id="panel-fleet" class="panel host-only">
+      <div class="panel-head">
+        <h2><svg class="icon"><use href="#i-joy"/></svg><span data-i18n="fleet_title">Robotok</span>
+          <span id="fleet-summary" class="muted small"></span></h2>
+        <div class="panel-tools">
+          <button id="btn-refresh-robots" class="ghost sm" type="button" data-i18n-title="btn_refresh_title">
+            <svg class="icon"><use href="#i-refresh"/></svg><span data-i18n="btn_refresh_pool">Újrakeresés</span>
+          </button>
+          <button id="btn-identify-all" class="ghost sm" type="button" data-i18n-title="btn_identify_all_title">
+            <svg class="icon"><use href="#i-bulb"/></svg><span data-i18n="btn_identify_all">Mind azonosítása</span>
+          </button>
+        </div>
       </div>
-      <button id="clear-log" class="sm xs-btn" data-i18n="btn_clear">Törlés</button>
-    </div>
-
-    <div id="log" class="console-box console-sticky-stream"></div>
-  </aside>
-
+      <div id="robot-pool-cards" class="fleet-grid"></div>
+      <p class="muted small legend">
+        <span><i class="bdot ok"></i>&ge; 70%</span>
+        <span><i class="bdot mid"></i>&ge; 30%</span>
+        <span><i class="bdot low"></i>&lt; 30%</span>
+        <span data-i18n="fleet_tap_hint">Koppints egy robotra: kijelzi a számát.</span>
+      </p>
+    </section>
+  </div>
 </main>
+
+<!-- ==================== LOG DRAWER ==================== -->
+<div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+<aside id="log-drawer" class="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2><svg class="icon"><use href="#i-log"/></svg><span data-i18n="console_title">Rendszernapló</span></h2>
+    <div class="panel-tools">
+      <button id="clear-log" class="ghost sm" type="button" data-i18n="btn_clear">Törlés</button>
+      <button id="close-log" class="ghost icon-only" type="button"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+  </div>
+  <div id="log" class="console"></div>
+</aside>
+
+<div id="toast" class="toast" hidden></div>
 
 <!-- ==================== MODALS ==================== -->
 
-<!-- Admin Settings Modal -->
 <div id="modal-admin-settings" class="modal-overlay" hidden>
-  <div class="modal-card" style="max-width:440px;">
+  <div class="modal-card">
     <div class="modal-header">
-      <h3>
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span data-i18n="admin_modal_title">Gazda Beállítások (Host Panel)</span>
-      </h3>
-      <button id="modal-admin-close" class="modal-close" onclick="closeAdminModal()">&times;</button>
+      <h3><svg class="icon"><use href="#i-gear"/></svg><span data-i18n="admin_modal_title">Beállítások</span></h3>
+      <button class="modal-close icon-only ghost" type="button" onclick="closeAdminModal()"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
-      <div style="margin-bottom:14px;">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
-          <input type="checkbox" id="toggle-auto-map" checked onchange="onToggleAutoMap(this.checked)">
-          <span data-i18n="admin_auto_map_label">Térkép automatikus megnyitása telefon csatlakozásakor</span>
-        </label>
-        <p style="color:var(--muted); font-size:0.82rem; margin:4px 0 0 24px;" data-i18n="admin_auto_map_desc">
-          Ha be van kapcsolva, amint egy diák beolvassa a QR-kódot, a laptop képernyője azonnal a bal oldali Aréna térképre fókuszál.
-        </p>
+      <label class="switch-row">
+        <input type="checkbox" id="toggle-auto-map" checked onchange="onToggleAutoMap(this.checked)">
+        <span>
+          <b data-i18n="admin_auto_map_label">Aréna kiemelése telefon csatlakozásakor</b>
+          <small class="muted" data-i18n="admin_auto_map_desc">Amikor egy telefon beolvassa a QR-kódot, a laptop az Aréna térképre ugrik.</small>
+        </span>
+      </label>
+      <div class="info-box">
+        <b data-i18n="admin_controllers_label">Telefonos irányítók: max 3</b>
+        <div class="slot-legend">
+          <span><i class="bdot" style="background:var(--r1)"></i><span data-i18n="slot_1">1. telefon: piros</span></span>
+          <span><i class="bdot" style="background:var(--r2)"></i><span data-i18n="slot_2">2. telefon: zöld</span></span>
+          <span><i class="bdot" style="background:var(--r3)"></i><span data-i18n="slot_3">3. telefon: kék</span></span>
+        </div>
+        <small class="muted" data-i18n="host_rules_note">5 perc tétlenség után a telefon kapcsolata bont, hogy más is sorra kerülhessen.</small>
       </div>
-
-      <div style="margin-bottom:14px;">
-        <label style="font-weight:600; font-size:0.85rem;" data-i18n="admin_controllers_label">Max telefonos irányítók száma: 3</label>
-        <p style="color:var(--muted); font-size:0.8rem; margin:2px 0 0;">
-          Telefon 1: Piros (1) &bull; Telefon 2: Zöld (2) &bull; Telefon 3: Kék (3)
-        </p>
-      </div>
-
-      <button class="primary" onclick="closeAdminModal()" style="width:100%; padding:9px;" data-i18n="btn_save_close">Mentés & Bezárás</button>
+      <button class="primary block" type="button" onclick="closeAdminModal()" data-i18n="btn_close">Kész</button>
+      <button id="btn-admin-logout" class="ghost block" type="button" hidden data-i18n="admin_logout">Kijelentkezés (ez a telefon)</button>
     </div>
   </div>
 </div>
 
-<!-- Bluetooth Preparation & Connect Modal -->
+<div id="modal-admin-login" class="modal-overlay" hidden>
+  <div class="modal-card narrow">
+    <div class="modal-header">
+      <h3><svg class="icon"><use href="#i-lock"/></svg><span data-i18n="admin_login_title">Admin belépés</span></h3>
+      <button class="modal-close icon-only ghost" type="button" onclick="closeAdminLogin()"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <form id="admin-login-form" class="modal-body">
+      <p class="muted small" data-i18n="admin_login_desc">Jelszóval ez a telefon a teljes vezérlőpultot kapja, mint a laptop.</p>
+      <input type="password" id="admin-password" class="text-input" autocomplete="current-password" data-i18n-placeholder="admin_password">
+      <small id="admin-login-error" class="login-error" hidden></small>
+      <button class="primary block" type="submit" data-i18n="admin_login_submit">Belépés</button>
+    </form>
+  </div>
+</div>
+
 <div id="modal-bluetooth" class="modal-overlay" hidden>
   <div class="modal-card">
     <div class="modal-header">
-      <h3>
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-        <span data-i18n="ble_modal_title">Bluetooth Beállítás & Előkészület</span>
-      </h3>
-      <button id="modal-close-btn" class="modal-close" title="Bezárás">&times;</button>
+      <h3><svg class="icon"><use href="#i-bt"/></svg><span data-i18n="ble_modal_title">Csatlakozás</span></h3>
+      <button id="modal-close-btn" class="modal-close icon-only ghost" type="button"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
-      <div class="setup-step">
-        <div class="step-number">1</div>
-        <div class="step-content">
-          <h4 data-i18n="ble_step_1_title">Kapcsold be a Bluetooth-t</h4>
-          <p data-i18n="ble_step_1_desc">Ellenőrizd, hogy a Bluetooth aktív a számítógépen vagy telefonodon.</p>
-        </div>
-      </div>
-      <div class="setup-step">
-        <div class="step-number">2</div>
-        <div class="step-content">
-          <h4 data-i18n="ble_step_2_title">Ébreszd fel a Sphero BOLT-ot</h4>
-          <p data-i18n="ble_step_2_desc">Rázd meg határozottan a robotot, amíg a LED kijelző fel nem villan.</p>
-        </div>
-      </div>
-      <div class="setup-step">
-        <div class="step-number">3</div>
-        <div class="step-content">
-          <h4 data-i18n="ble_step_3_title">Párosítás és Csatlakozás</h4>
-          <p data-i18n="ble_step_3_desc">Csatlakozz közvetlenül a böngészőből, vagy a tantermi Arch Linux géphez.</p>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-scan-ble" class="btn-connect-ble">
-          <svg class="icon" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-          <span data-i18n="btn_pair_ble">Sphero Keresése és Párosítása</span>
-        </button>
-        <div style="text-align:center; color:var(--muted); font-size:0.8rem; margin:4px 0;" data-i18n="or_connect_server">— VAGY CSATLAKOZÁS ARCH LINUX GÉPHEZ —</div>
-        <div class="server-connect-row">
-          <input type="text" id="input-server-url" placeholder="pl. 192.168.1.150:8080" />
-          <button id="btn-connect-server" class="sm" data-i18n="btn_connect_server">Szerver Csatlakozás</button>
-        </div>
+      <ol class="steps">
+        <li data-i18n="ble_step_1">Kapcsold be a Bluetooth-t.</li>
+        <li data-i18n="ble_step_2">Rázd meg a robotot, amíg a kijelzője felvillan.</li>
+        <li data-i18n="ble_step_3">Csatlakozz a böngészőből, vagy add meg a laptop címét.</li>
+      </ol>
+      <button id="btn-scan-ble" class="primary block" type="button">
+        <svg class="icon"><use href="#i-bt"/></svg><span data-i18n="btn_pair_ble">Robot keresése Bluetooth-on</span>
+      </button>
+      <div class="divider" data-i18n="or_connect_server">vagy csatlakozás a laptophoz</div>
+      <div class="input-row">
+        <input type="text" id="input-server-url" placeholder="192.168.1.150:8080" />
+        <button id="btn-connect-server" type="button" data-i18n="btn_connect_server">Csatlakozás</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Inactivity Timeout Modal -->
 <div id="modal-timeout" class="modal-overlay" hidden>
-  <div class="modal-card" style="max-width:440px; text-align:center;">
-    <div class="modal-header">
-      <h3 style="margin:0 auto;">
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span data-i18n="timeout_modal_title">Inaktivitás miatt bontva</span>
-      </h3>
-    </div>
-    <div class="modal-body" style="text-align:center;">
-      <p data-i18n="timeout_modal_desc" style="color:var(--muted); line-height:1.5;">
-        5 perc tétlenség után a kapcsolat bontásra került, hogy a többi várakozó diák is kipróbálhassa az irányítást.
-      </p>
-      <button class="primary" onclick="reconnectClient()" style="width:100%; padding:10px; font-size:0.95rem;" data-i18n="btn_reconnect">Újracsatlakozás</button>
+  <div class="modal-card narrow center">
+    <div class="modal-body">
+      <svg class="icon icon-xl"><use href="#i-clock"/></svg>
+      <h3 data-i18n="timeout_modal_title">Kapcsolat bontva</h3>
+      <p class="muted" data-i18n="timeout_modal_desc">5 perc tétlenség után a kapcsolat bontott, hogy más is kipróbálhassa.</p>
+      <button class="primary block" type="button" onclick="reconnectClient()" data-i18n="btn_reconnect">Újracsatlakozás</button>
     </div>
   </div>
 </div>
 
-<!-- Max Clients Limit Modal -->
 <div id="modal-max-clients" class="modal-overlay" hidden>
-  <div class="modal-card" style="max-width:440px; text-align:center;">
-    <div class="modal-header">
-      <h3 style="margin:0 auto;">
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        <span data-i18n="max_modal_title">Tele a pálya (3/3)</span>
-      </h3>
-    </div>
-    <div class="modal-body" style="text-align:center;">
-      <p data-i18n="max_modal_desc" style="color:var(--muted); line-height:1.5;">
-        Jelenleg mind a 3 irányítói hely foglalt. Kérlek várj pár percet, amíg egy hely felszabadul!
-      </p>
-      <button class="primary" onclick="closeMaxClientsModal()" style="width:100%; padding:10px; font-size:0.95rem;" data-i18n="btn_understood">Értem</button>
+  <div class="modal-card narrow center">
+    <div class="modal-body">
+      <svg class="icon icon-xl"><use href="#i-phone"/></svg>
+      <h3 data-i18n="max_modal_title">Minden hely foglalt</h3>
+      <p class="muted" data-i18n="max_modal_desc">Mind a 3 irányítói hely foglalt. Várj egy kicsit, amíg felszabadul egy!</p>
+      <button class="primary block" type="button" onclick="reconnectClient()" data-i18n="btn_retry">Újrapróbálás</button>
+      <button class="ghost block" type="button" onclick="closeMaxClientsModal()" data-i18n="btn_understood">Rendben</button>
     </div>
   </div>
 </div>

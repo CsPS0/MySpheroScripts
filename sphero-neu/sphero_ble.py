@@ -214,17 +214,18 @@ def find_toy(name=None, timeout=SCAN_TIMEOUT, toy_type=scanner.BOLT, adapter=Non
         sphero_sim.enable_simulation()
         return sphero_sim.SimulatorManager.get().get_toy(name or "BOLT-1")
 
-    # Fast path: check cached address from startup pool
+    # "BOLT-n" means robot n of the web server's pool: the cache maps it to an
+    # address, and the same address to the robot's Bluetooth name (SB-xxxx).
     cached = load_cached_bolts()
-    target_addr = cached.get(name.upper()) if name else None
-    if target_addr:
-        try:
-            cached_toys = scanner.find_toys(timeout=2.0, toy_types=[toy_type],
-                                             toy_names=[target_addr], adapter=adapter_class(adapter))
-            if cached_toys:
-                return cached_toys[0]
-        except Exception:
-            pass
+    if name and not name.upper().startswith("SB-"):
+        addr = cached.get(name.upper())
+        bt_name = next((k for k, v in cached.items() if v == addr and k.startswith("SB-")), None)
+        if bt_name:
+            toys = scanner.find_toys(timeout=timeout, toy_types=[toy_type],
+                                     toy_names=[bt_name], adapter=adapter_class(adapter))
+            if toys:
+                return toys[0]
+            print(f"  {name} ({bt_name}) not seen, using any free BOLT", flush=True)
 
     # If specific Bluetooth name (e.g. SB-3FF5) was requested
     if name and name.upper().startswith("SB-"):
@@ -279,8 +280,10 @@ def connect_toy(name, enter, attempts=ATTEMPTS, log=print, adapter=None):
             log(f"  {name}: failed: {type(e).__name__}: {e}")
             if toy is not None:
                 forget_device(toy.address)
-            # If Bluetooth is not available on this system, auto-switch to simulation!
-            if "Bluetooth" in type(e).__name__ or "Bleak" in type(e).__name__ or attempt == attempts:
+            # Only without any Bluetooth adapter switch to simulation. One robot
+            # that fails must not turn the following robots into fake ones: the
+            # caller gets a ConnectionError and can try another robot.
+            if not list_adapters():
                 log(f"  {name}: No physical connection available. Falling back to SIMULATION.")
                 set_simulation(True)
                 import sphero_sim

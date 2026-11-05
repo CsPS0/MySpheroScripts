@@ -110,309 +110,413 @@ function playBoom() {
 
 const $ = (id) => document.getElementById(id);
 
+// localStorage can throw (blocked storage, some private modes): never let it break the page
+const store = {
+  get(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } },
+  set(key, value) { try { window.localStorage.setItem(key, value); } catch (e) {} },
+};
+
 // ==========================================
-// Bilingual Translation (HU default, EN backup)
+// Bilingual Translation (HU default, EN secondary)
 // ==========================================
-let currentLang = localStorage.getItem("sphero_lang") || "hu";
+let currentLang = store.get("sphero_lang") || "hu";
 
 const I18N = {
   hu: {
-    lang: "HU",
     status_offline: "Offline",
     status_connected: "Csatlakozva",
     status_running: "Fut",
-    sound_on: "Hang BE",
-    sound_off: "Hang KI",
-    stop: "Leállítás",
+    status_sim: "Szimuláció",
+    status_hint: "Kapcsolat állapota. Offline állapotban kattints a csatlakozáshoz.",
     connect_btn: "Csatlakozás",
+    log_btn: "Napló",
+    log_title: "Rendszernapló megnyitása",
+    sound_title: "Hang be/ki",
+    admin_btn: "Beállítások",
+    stop: "Leállítás",
 
-    nav_intro: "Bemutató",
-    nav_arena: "Aréna",
-    nav_shows: "Műsorok",
-    nav_games: "Játékok",
-    nav_tictactoe: "Amőba",
-    nav_drive: "Botkormány",
-    nav_console: "Napló",
+    robots_unit: "robot",
+    phones_unit: "telefon",
+    low_batt: "{n} alacsony akku",
 
-    intro_title: "Neumann Sphero Robotika Bemutató",
-    intro_subtitle: "Irányítsd a robotokat közvetlenül a saját telefonodról!",
-    qr_step_1: "Nyisd meg a kamerát a telefonodon.",
-    qr_step_2: "Olvasd be a fenti QR-kódot a csatlakozáshoz.",
-    qr_step_3: "Válaszd ki a virtuális botkormányt vagy indíts egy játékot!",
-    host_panel_title: "Csatlakoztatott telefonok",
-    no_devices_msg: "Nincs aktív telefon csatlakoztatva. Olvasd be a QR-kódot a kezdéshez!",
-    host_rules_note: "Egyszerre legfeljebb 3 telefon kapcsolódhat. Ha egy eszköz 5 percig tétlen, a rendszer automatikusan bontja a kapcsolatot, hogy más is kipróbálhassa.",
-    quick_launch_title: "Gyors Indítás a Monitorról",
-
-    card_dance_title: "Szinkrontánc",
-    badge_show: "Műsor",
-    card_dance_desc: "Mindhárom robot egyszerre forog, szlalomozik, alakzatot vált, a végén pedig színes szivárványfénnyel zár.",
-    btn_start_dance: "Tánc Indítása",
-
-    card_drive_title: "Virtuális Botkormány",
-    badge_drive: "Irányítás",
-    card_drive_desc: "Irányítsd a Sphero robotot az analóg karral! Érintőképernyőn és billentyűzeten (W A S D) is azonnal reagál.",
-    btn_open_joystick: "Botkormány Megnyitása",
-
-    card_potato_title: "Forró Krumpli",
-    badge_game: "Játék",
-    card_potato_desc: "Add tovább a robotot körbe a többieknek, mielőtt lejár a kanóc! Egyre gyorsabban pittyeg, a végén robbanással és hanggal!",
-    btn_play_potato: "Játék Indítása",
-
-    card_ttt_title: "9 Robotos Amőba",
-    card_ttt_desc: "9 Sphero a padlón 3x3-as elrendezésben. Koppints a mezőre a telefonon, és a robot azonnal felveszi a színedet!",
-    btn_play_ttt: "Amőba Indítása",
-
-    arena_title: "Élő Robot Aréna",
-    arena_subtitle: "2D padlónézet. Kattints vagy koppints a robotra a megrázás szimulálásához!",
+    arena_title: "Aréna",
     arena_trails: "Nyomvonal",
-    arena_recenter: "Középre",
-    arena_shake: "Robotok Rázása",
-    arena_hint: "Méretarány: 1 négyzet = 20 cm. Valós fizika és 8x8-as LED mátrix kijelző.",
+    arena_clear: "Törlés",
+    arena_stats: "{n} robot · 1 négyzet = 20 cm · koppints egy robotra a rázáshoz",
 
-    shows_title: "Koreográfia és Bemutatók",
-    shows_subtitle: "Előre beprogramozott látványos robotmozgások és iskolai felirat.",
-    card_neu_title: "Neumann Iskolai Felirat",
-    badge_matrix: "Mátrix",
-    card_neu_desc: "A robotok felállnak a megfelelő pozícióba, és folyamatosan görgetik a teljes NEUMANN nevet a kijelzőjükön ragyogó fényekkel.",
-    btn_show_neu: "Neumann Indítása",
-    card_roam_title: "Önálló Bolyongás",
-    badge_wander: "Mozgás",
-    card_roam_desc: "Mindhárom robot szabadon pásztázza a padlót a saját 25 cm-es zónájában az akadályokat kikerülve.",
-    btn_start_roam: "Bolyongás Indítása",
-    neu_editor_title: "Neumann Betűk & Irány Élő Beállítása",
-    neu_editor_desc: "A beállítások azonnal megjelennek a robotokon. 90°-os forgatás vagy tükrözés.",
-    target_heading: "Célirány:",
+    phones_title: "Telefonos irányítás",
+    qr_step_1: "Olvasd be a QR-kódot a telefon kamerájával.",
+    qr_step_2: "A telefon kap egy számot: 1 piros, 2 zöld, 3 kék.",
+    qr_step_3: "Indítsd el a Vezetést, és a botkormánnyal irányíthatsz.",
+    no_devices_msg: "Még nincs telefon csatlakoztatva.",
+    drive_hint: "Telefon csatlakozott, de a Vezetés nem fut.",
+    btn_start_drive: "Vezetés indítása",
+    disconnect_btn: "Bontás",
+    active_now: "aktív",
+    idle_secs: "{n} mp tétlen",
+    idle_mins: "{n} perce tétlen",
+    phone_n: "{n}. telefon",
 
-    games_title: "Interaktív Csapatjátékok",
-    games_subtitle: "Gyors, pörgős játékok iskolásoknak és látogatóknak.",
-    card_mole_title: "Vakondvadászat",
-    badge_reflex: "Reflex",
-    card_mole_desc: "Egy robot felvillan neon zölden: érintsd meg minél gyorsabban, mielőtt eltűnik! 60 másodperces reflexjáték pontszámlálóval.",
-    btn_play_mole: "Vakondvadászat Indítása",
-    card_simon_title: "Simon Mondja",
-    badge_memory: "Memória",
-    card_simon_desc: "A robotok hangokkal és fényekkel mutatják a mintát. Ismételd meg a sorrendet! Minden szint egy lépéssel hosszabb.",
-    btn_play_simon: "Simon Mondja Indítása",
-    card_rps_title: "Kő-Papír-Olló",
-    badge_duel: "Párbaj",
-    card_rps_desc: "Két robot (Piros vs Kék). 3-2-1 visszaszámlálás, majd mindkét robot mutatja a választását. 2 nyert menetig tart.",
-    btn_play_rps: "Kő-Papír-Olló Indítása",
+    controller_wait: "Várj, amíg a bemutató vezetője elindítja a Vezetést.",
+    assigned_title: "Te irányítod: {n}. robot",
+    assigned_desc: "A robot kijelzőjén a(z) {n} szám világít, {color} színnel.",
 
-    ttt_title: "9 Robotos Padló Amőba",
-    ttt_subtitle: "9 robot a padlón 3x3-as rácsban. Koppints a mezőkre a lépéshez!",
-    ttt_same_layout: "Újra (Ugyanitt)",
-    ttt_renumber: "Újraszámozás",
-    ttt_start: "Játék Kezdése",
-    ttt_footer: "Három egymás mellett világító zöld fénnyel és győzelmi dallammal jelzi a nyertest!",
-
-    drive_title: "Kézi Botkormány (Virtuális Joystick)",
-    drive_subtitle: "Finom analóg irányítás. Érintsd meg és húzd a kart bármelyik irányba!",
+    tab_drive: "Vezetés",
+    tab_shows: "Műsorok",
+    tab_games: "Játékok",
     hud_heading: "Irány",
     hud_throttle: "Sebesség",
-    hud_mode: "Üzemmód",
-    hud_mode_val: "Sima RC",
-    steer_robot: "Irányított robot:",
-    drive_controls_hint: "Koppints és húzd a botkormányt az ujjaddal a telefonodon, vagy az egérrel. Számítógépen a W A S D és a nyilak is használhatók!",
+    steer_robot: "Melyik robotot vezeted?",
+    drive_controls_hint: "Húzd a botkormányt ujjal vagy egérrel. Billentyűzeten: W A S D vagy nyilak.",
+    calib_title: "Kalibrálás",
+    calib_hint: "Állj a robot mögé, és húzd a csúszkát, amíg a nyíl és a fehér fény tőled előre mutat. Utána a botkormány felfelé mindig előre visz.",
+    calib_off_hint: "A kalibrálás a Vezetés futása közben működik, mert akkor csatlakozik a robot.",
+    calib_reset: "Nullázás",
 
-    console_title: "Eseménynapló és Telemetria",
-    console_subtitle: "Rendszerüzenetek, játékmenet és kapcsolatok naplózása.",
+    target_heading: "Célirány",
+    letters_adjust: "Betűk forgatása és tükrözése",
+    align_label: "Igazítás",
+    admin_login_btn: "Admin",
+    admin_login_title: "Admin belépés",
+    admin_login_desc: "Jelszóval ez a telefon a teljes vezérlőpultot kapja, mint a laptop.",
+    admin_password: "Jelszó",
+    admin_login_submit: "Belépés",
+    admin_login_ok: "Belépve adminként",
+    admin_login_wrong: "Hibás jelszó.",
+    admin_login_failed: "Nem sikerült csatlakozni a szerverhez.",
+    admin_logout: "Kijelentkezés (ez a telefon)",
+    admin_required: "Ehhez admin belépés kell.",
+    dance_robots: "Robotok a táncban",
+    dance_robots_hint: "Koppints egy számra, hogy kihagyd azt a robotot. A foglalt (máshoz csatlakozott) robotokat a tánc magától kihagyja.",
+    dance_in: "Táncol. Koppints a kihagyáshoz.",
+    dance_out: "Kihagyva. Koppints a visszavételhez.",
+    dance_busy: "Foglalt vagy kikapcsolt: most kimarad.",
+    dance_lost: "Megszakadt a kapcsolat: kimarad.",
+    dance_go: "Mehet! (sorban állnak)",
+    dance_next: "Következő rész",
+    dance_phase_connecting: "Csatlakozás...",
+    dance_phase_setup: "Állítsd sorba őket a számuk szerint, balról jobbra, kék fénnyel feléd",
+    dance_phase_rainbow: "Szivárvány hullám",
+    dance_phase_rush: "Száguldás",
+    dance_phase_chars: "Betűk és tánc",
+    dance_phase_home: "Vissza a helyükre",
+    dance_phase_finale: "Finálé",
+    dance_phase_done: "Vége",
+    hand_off: "Kézi forgatás",
+    hand_on: "Kézi forgatás BE: forgasd a robotokat",
+    hand_off_hint: "Bekapcsolva a robotok elengednek: kézzel forgathatod őket, és ott maradnak. Kikapcsoláskor megtartják az irányt.",
+    hand_on_hint: "Az automatikus forgatás le van tiltva. Forgasd a robotokat kézzel (kék hátsó fény = hátul), majd kapcsold ki: megtartják az irányt.",
+    align_compass: "Iránytű: mind északra",
+    align_aim: "Kézi célzás",
+    align_compass_hint: "Indításkor minden robot megkeresi az északot (pár mp-ig forog), és mind ugyanarra néz. A Célirány északhoz képest értendő.",
+    align_aim_hint: "Indításkor 10 mp célzás: fordítsd a robotokat úgy, hogy a kék hátsó fény feléd nézzen. Váltás után indítsd újra a műsort.",
+    letters_each: "Betűk egyenként",
+    letters_each_hint: "Betű: a kijelzőn forgat 90°-kal. Robot: az egész robotot fordítja 15°-kal, ha ferdén áll.",
+    letter_word: "Betű",
+    robot_word: "Robot",
+    letter_ccw: "Betű forgatása balra 90°",
+    letter_cw: "Betű forgatása jobbra 90°",
+    robot_left: "Robot fordítása balra 15°",
+    robot_right: "Robot fordítása jobbra 15°",
+    start_x: "Indítás: {name}",
+    restart_x: "Újraindítás: {name}",
+    running_label: "fut",
+    robots_needed: "{n} robot",
+
+    ttt_same_layout: "Új játék",
+    ttt_renumber: "Újraszámozás",
+    ttt_start: "Számozás kész",
+    ttt_idle: "Indítsd el az Amőbát a játékhoz.",
+    ttt_numbering: "Számozás: rázd meg a(z) {n}. mező labdáját ({done}/9 kész).",
+    ttt_draw: "Döntetlen! Új játékhoz nyomd meg az Új játék gombot.",
+    ttt_win: "{p} nyert! Új játékhoz nyomd meg az Új játék gombot.",
+    ttt_turn: "Következik:",
+    ttt_shake_next: "rázd meg",
+    ttt_tap: "koppints",
+    party_round: "Új kör",
+    party_idle: "Nyomd meg az Indítás gombot a kezdéshez.",
+
+    fleet_title: "Robotok",
+    btn_refresh_pool: "Újrakeresés",
+    btn_refresh_title: "Robotok újrakeresése Bluetooth-on",
+    btn_identify_all: "Mind azonosítása",
+    btn_identify_all_title: "Minden robot kijelzi a saját számát",
+    fleet_tap_hint: "Koppints egy robotra: kijelzi a számát.",
+    fleet_empty: "Nincs robot. Kapcsold be és rázd fel őket, majd nyomd meg az Újrakeresés gombot.",
+    battery_unknown: "Az akkuszint azonosításkor frissül",
+    identify_title: "Azonosítás: a robot kijelzi a(z) {n} számot",
+    identify_sent: "Azonosítás: {n}. robot",
+    refresh_started: "Robotok keresése...",
+    refresh_done: "{n} robot megtalálva",
+    controlled_by: "{n}. telefon irányítja",
+
+    console_title: "Rendszernapló",
     btn_clear: "Törlés",
 
-    disconnect_btn: "Lekapcsolás",
-    active_now: "épp most aktív",
-    idle_secs: "mp-e tétlen",
-    idle_mins: "perce tétlen",
+    admin_modal_title: "Beállítások",
+    admin_auto_map_label: "Aréna kiemelése telefon csatlakozásakor",
+    admin_auto_map_desc: "Amikor egy telefon beolvassa a QR-kódot, a laptop az Aréna térképre ugrik.",
+    admin_controllers_label: "Telefonos irányítók: max 3",
+    slot_1: "1. telefon: piros",
+    slot_2: "2. telefon: zöld",
+    slot_3: "3. telefon: kék",
+    host_rules_note: "5 perc tétlenség után a telefon kapcsolata bont, hogy más is sorra kerülhessen.",
+    btn_close: "Kész",
 
-    timeout_modal_title: "Inaktivitás miatt bontva",
-    timeout_modal_desc: "5 perc tétlenség után a kapcsolat bontásra került, hogy a többi várakozó diák is kipróbálhassa az irányítást.",
+    ble_modal_title: "Csatlakozás",
+    ble_step_1: "Kapcsold be a Bluetooth-t.",
+    ble_step_2: "Rázd meg a robotot, amíg a kijelzője felvillan.",
+    ble_step_3: "Csatlakozz a böngészőből, vagy add meg a laptop címét.",
+    btn_pair_ble: "Robot keresése Bluetooth-on",
+    or_connect_server: "vagy csatlakozás a laptophoz",
+    btn_connect_server: "Csatlakozás",
+
+    timeout_modal_title: "Kapcsolat bontva",
+    timeout_modal_desc: "5 perc tétlenség után a kapcsolat bontott, hogy más is kipróbálhassa.",
     btn_reconnect: "Újracsatlakozás",
+    max_modal_title: "Minden hely foglalt",
+    max_modal_desc: "Mind a 3 irányítói hely foglalt. Várj egy kicsit, amíg felszabadul egy!",
+    btn_retry: "Újrapróbálás",
+    btn_understood: "Rendben",
 
-    max_modal_title: "Tele a pálya (3/3)",
-    max_modal_desc: "Jelenleg mind a 3 irányítói hely foglalt. Kérlek várj pár percet, amíg egy hely felszabadul!",
-    btn_understood: "Értem",
-
-    ble_modal_title: "Bluetooth Beállítás & Előkészület",
-    ble_step_1_title: "Kapcsold be a Bluetooth-t",
-    ble_step_1_desc: "Húzd le az értesítési sávot a telefonodon, és ellenőrizd, hogy a Bluetooth be van-e kapcsolva.",
-    ble_step_2_title: "Ébreszd fel a Sphero BOLT-ot",
-    ble_step_2_desc: "Rázd meg határozottan a robotot, amíg a LED kijelzőjén fel nem villan a neve (pl. SB-3FF5).",
-    ble_step_3_title: "Párosítás és Csatlakozás",
-    ble_step_3_desc: "Csatlakozz közvetlenül a böngészőből, vagy a tantermi Arch Linux géphez.",
-    btn_pair_ble: "Sphero Keresése és Párosítása",
-    or_connect_server: "— VAGY CSATLAKOZÁS ARCH LINUX GÉPHEZ —",
-    btn_connect_server: "Szerver Csatlakozás"
+    mirror: "Tükrözés",
+    reset: "Alaphelyzet",
+    all_three: "Mind",
+    mirrored: "tükrözve",
+    started_x: "Elindítva: {name}",
+    offline_sim: "Nincs szerver: a programok szimulációban futnak.",
   },
   en: {
-    lang: "EN",
     status_offline: "Offline",
     status_connected: "Connected",
     status_running: "Running",
-    sound_on: "Sound ON",
-    sound_off: "Sound OFF",
-    stop: "Stop",
+    status_sim: "Simulation",
+    status_hint: "Connection status. Click to connect while offline.",
     connect_btn: "Connect",
+    log_btn: "Log",
+    log_title: "Open system log",
+    sound_title: "Sound on/off",
+    admin_btn: "Settings",
+    stop: "Stop",
 
-    nav_intro: "Introduction",
-    nav_arena: "Arena",
-    nav_shows: "Shows",
-    nav_games: "Party Games",
-    nav_tictactoe: "Tic-Tac-Toe",
-    nav_drive: "Manual Drive",
-    nav_console: "Activity Log",
+    robots_unit: "robots",
+    phones_unit: "phones",
+    low_batt: "{n} low battery",
 
-    intro_title: "Sphero Robotics Presentation",
-    intro_subtitle: "Control the robots directly from your own phone!",
-    qr_step_1: "Open the camera app on your smartphone.",
-    qr_step_2: "Scan the QR code above to connect.",
-    qr_step_3: "Pick the virtual joystick or start an interactive game!",
-    host_panel_title: "Connected Controller Phones",
-    no_devices_msg: "No active phones connected. Scan the QR code to start!",
-    host_rules_note: "Up to 3 phones can connect at once. If a phone is inactive for 5 minutes, the system frees up the slot for others.",
-    quick_launch_title: "Quick Launch from Monitor",
-
-    card_dance_title: "Synchronized Dance",
-    badge_show: "Show",
-    card_dance_desc: "All 3 robots execute synchronized 360° spins, side-to-side shuffles, and a colorful rainbow finale.",
-    btn_start_dance: "Start Dance",
-
-    card_drive_title: "Joystick Remote Drive",
-    badge_drive: "Drive",
-    card_drive_desc: "Drive your Sphero robot with the responsive analog virtual joystick. Supports touch and W A S D.",
-    btn_open_joystick: "Open Joystick",
-
-    card_potato_title: "Hot Potato",
-    badge_game: "Game",
-    card_potato_desc: "Pass the robot around before the fuse expires! Accelerates ticking, ends with an explosion sound!",
-    btn_play_potato: "Play Potato",
-
-    card_ttt_title: "9-Ball Tic-Tac-Toe",
-    card_ttt_desc: "9 Sphero robots arranged in a 3x3 grid on the floor. Tap squares on your phone to take turns!",
-    btn_play_ttt: "Start Tic-Tac-Toe",
-
-    arena_title: "Live Robot Arena",
-    arena_subtitle: "Interactive 2D floor view. Click or tap any robot on the floor to simulate shaking it!",
+    arena_title: "Arena",
     arena_trails: "Trails",
-    arena_recenter: "Recenter",
-    arena_shake: "Shake Bots",
-    arena_hint: "Floor scale: 1 grid square = 20 cm. Smooth physics and live 8x8 LED matrix display.",
+    arena_clear: "Clear",
+    arena_stats: "{n} robots · 1 square = 20 cm · tap a robot to shake it",
 
-    shows_title: "Choreography & Shows",
-    shows_subtitle: "Pre-programmed routines and school formation displays.",
-    card_neu_title: "Neumann School Formation",
-    badge_matrix: "Matrix",
-    card_neu_desc: "The robots roll into formation, align to heading, and scroll the glowing NEUMANN school name on their LED matrices.",
-    btn_show_neu: "Start Neumann",
-    card_roam_title: "Autonomous Roam",
-    badge_wander: "Wander",
-    card_roam_desc: "All 3 robots wander smoothly within their 25 cm zones, avoiding collisions, then return home.",
-    btn_start_roam: "Start Roam",
-    neu_editor_title: "Neumann Letters & Heading Live Settings",
-    neu_editor_desc: "Changes update live on the robots. Adjust rotation or mirror flip.",
-    target_heading: "Target Heading:",
+    phones_title: "Phone control",
+    qr_step_1: "Scan the QR code with your phone camera.",
+    qr_step_2: "Each phone gets a number: 1 red, 2 green, 3 blue.",
+    qr_step_3: "Start Drive and steer with the joystick.",
+    no_devices_msg: "No phones connected yet.",
+    drive_hint: "A phone is connected but Drive is not running.",
+    btn_start_drive: "Start Drive",
+    disconnect_btn: "Disconnect",
+    active_now: "active",
+    idle_secs: "{n}s idle",
+    idle_mins: "{n} min idle",
+    phone_n: "Phone {n}",
 
-    games_title: "Interactive Party Games",
-    games_subtitle: "High-energy games designed for student engagement and classroom participation.",
-    card_mole_title: "Whack-a-Mole",
-    badge_reflex: "Reflexes",
-    card_mole_desc: "A random ball lights up neon green with a pop sound: tap it before it hides! 60s round with score.",
-    btn_play_mole: "Play Whack-a-Mole",
-    card_simon_title: "Simon Says",
-    badge_memory: "Memory",
-    card_simon_desc: "Balls light up with distinct musical notes (C, E, G, High C). Repeat the sequence back by tapping!",
-    btn_play_simon: "Play Simon Says",
-    card_rps_title: "Rock-Paper-Scissors",
-    badge_duel: "2-Player",
-    card_rps_desc: "2 robots (Player 1 Red vs Player 2 Blue). Countdown 3-2-1, then reveal gestures. Best of 3 match!",
-    btn_play_rps: "Play RPS",
+    controller_wait: "Wait for the host to start Drive.",
+    assigned_title: "You control robot {n}",
+    assigned_desc: "Robot {n} shows the number {n} in {color} on its display.",
 
-    ttt_title: "9-Ball Floor Tic-Tac-Toe",
-    ttt_subtitle: "9 robots arranged in a 3x3 grid on the floor. Tap squares to take turns.",
-    ttt_same_layout: "Same Layout",
-    ttt_renumber: "Renumber",
-    ttt_start: "Start Game",
-    ttt_footer: "Three in a row turns the winning robots bright green with victory fanfare!",
-
-    drive_title: "Manual RC Drive (Virtual Joystick)",
-    drive_subtitle: "Touch and drag the thumbstick in any direction. Zero lag, fluid return-to-center physics.",
+    tab_drive: "Drive",
+    tab_shows: "Shows",
+    tab_games: "Games",
     hud_heading: "Heading",
-    hud_throttle: "Throttle",
-    hud_mode: "Mode",
-    hud_mode_val: "Smooth RC",
-    steer_robot: "Steer Robot:",
-    drive_controls_hint: "Drag the thumbstick with your finger on a mobile phone, or with your mouse. Keyboard: W A S D or arrows!",
+    hud_throttle: "Speed",
+    steer_robot: "Which robot do you drive?",
+    drive_controls_hint: "Drag the joystick with your finger or mouse. Keyboard: W A S D or arrow keys.",
+    calib_title: "Calibration",
+    calib_hint: "Stand behind the robot and move the slider until the arrow and the white light point straight ahead, away from you. Then pushing the joystick up always drives forward.",
+    calib_off_hint: "Calibration works while Drive is running, because that is when the robot is connected.",
+    calib_reset: "Reset",
 
-    console_title: "Activity Console & Telemetry",
-    console_subtitle: "Live system telemetry, connection events, and game diagnostics.",
+    target_heading: "Heading",
+    letters_adjust: "Rotate and mirror letters",
+    align_label: "Alignment",
+    admin_login_btn: "Admin",
+    admin_login_title: "Admin login",
+    admin_login_desc: "With the password this phone gets the full dashboard, like the laptop.",
+    admin_password: "Password",
+    admin_login_submit: "Log in",
+    admin_login_ok: "Logged in as admin",
+    admin_login_wrong: "Wrong password.",
+    admin_login_failed: "Could not reach the server.",
+    admin_logout: "Log out (this phone)",
+    admin_required: "This needs an admin login.",
+    dance_robots: "Robots in the dance",
+    dance_robots_hint: "Tap a number to leave that robot out. Busy robots (connected elsewhere) are skipped automatically.",
+    dance_in: "Dances. Tap to leave it out.",
+    dance_out: "Left out. Tap to take it back.",
+    dance_busy: "Busy or switched off: skipped this time.",
+    dance_lost: "Connection lost: sits out.",
+    dance_go: "Go! (they are lined up)",
+    dance_next: "Next part",
+    dance_phase_connecting: "Connecting...",
+    dance_phase_setup: "Line them up by number, left to right, blue light towards you",
+    dance_phase_rainbow: "Rainbow wave",
+    dance_phase_rush: "Rush",
+    dance_phase_chars: "Characters and dancing",
+    dance_phase_home: "Back to their spots",
+    dance_phase_finale: "Finale",
+    dance_phase_done: "Done",
+    hand_off: "Turn by hand",
+    hand_on: "Turn by hand ON: turn the robots",
+    hand_off_hint: "When on, the robots let go: turn them by hand and they stay there. Switching it off keeps their directions.",
+    hand_on_hint: "Automatic turning is off. Turn the robots by hand (blue tail light = back), then switch this off: they keep their directions.",
+    align_compass: "Compass: all face north",
+    align_aim: "Manual aim",
+    align_compass_hint: "At start every robot finds north (it spins for a few seconds) and they all face the same way. The heading is relative to north.",
+    align_aim_hint: "At start, 10 s aim: turn the robots so their blue tail light faces you. Restart the show after switching.",
+    letters_each: "Letters one by one",
+    letters_each_hint: "Letter: turns it on the display by 90°. Robot: turns the whole robot by 15° if it stands crooked.",
+    letter_word: "Letter",
+    robot_word: "Robot",
+    letter_ccw: "Turn letter left 90°",
+    letter_cw: "Turn letter right 90°",
+    robot_left: "Turn robot left 15°",
+    robot_right: "Turn robot right 15°",
+    start_x: "Start: {name}",
+    restart_x: "Restart: {name}",
+    running_label: "running",
+    robots_needed: "{n} robots",
+
+    ttt_same_layout: "New game",
+    ttt_renumber: "Renumber",
+    ttt_start: "Numbering done",
+    ttt_idle: "Start Tic-tac-toe to play.",
+    ttt_numbering: "Numbering: shake the ball for square {n} ({done} of 9 done).",
+    ttt_draw: "Draw! Press New game to play again.",
+    ttt_win: "{p} wins! Press New game to play again.",
+    ttt_turn: "Turn:",
+    ttt_shake_next: "shake",
+    ttt_tap: "tap",
+    party_round: "New round",
+    party_idle: "Press Start to begin.",
+
+    fleet_title: "Robots",
+    btn_refresh_pool: "Rescan",
+    btn_refresh_title: "Rescan robots over Bluetooth",
+    btn_identify_all: "Identify all",
+    btn_identify_all_title: "Every robot shows its own number",
+    fleet_tap_hint: "Tap a robot to show its number.",
+    fleet_empty: "No robots found. Switch them on, shake them, then press Rescan.",
+    battery_unknown: "Battery level updates when identified",
+    identify_title: "Identify: robot shows the number {n}",
+    identify_sent: "Identify: robot {n}",
+    refresh_started: "Scanning for robots...",
+    refresh_done: "{n} robots found",
+    controlled_by: "Driven by phone {n}",
+
+    console_title: "System log",
     btn_clear: "Clear",
 
-    disconnect_btn: "Disconnect",
-    active_now: "active now",
-    idle_secs: "s idle",
-    idle_mins: "m idle",
+    admin_modal_title: "Settings",
+    admin_auto_map_label: "Highlight the arena when a phone connects",
+    admin_auto_map_desc: "When a phone scans the QR code, the laptop jumps to the Arena map.",
+    admin_controllers_label: "Phone controllers: max 3",
+    slot_1: "Phone 1: red",
+    slot_2: "Phone 2: green",
+    slot_3: "Phone 3: blue",
+    host_rules_note: "After 5 minutes of inactivity a phone is disconnected so someone else can play.",
+    btn_close: "Done",
 
-    timeout_modal_title: "Disconnected Due to Inactivity",
-    timeout_modal_desc: "After 5 minutes of no activity, your connection was closed so other students can have a turn.",
+    ble_modal_title: "Connect",
+    ble_step_1: "Turn on Bluetooth.",
+    ble_step_2: "Shake the robot until its display lights up.",
+    ble_step_3: "Connect from the browser, or enter the laptop address.",
+    btn_pair_ble: "Find robot over Bluetooth",
+    or_connect_server: "or connect to the laptop",
+    btn_connect_server: "Connect",
+
+    timeout_modal_title: "Disconnected",
+    timeout_modal_desc: "After 5 minutes without activity the connection was closed so others can play.",
     btn_reconnect: "Reconnect",
+    max_modal_title: "All slots taken",
+    max_modal_desc: "All 3 controller slots are in use. Please wait a moment for one to free up!",
+    btn_retry: "Try again",
+    btn_understood: "OK",
 
-    max_modal_title: "All Slots Full (3/3)",
-    max_modal_desc: "All 3 controller slots are currently in use. Please wait a few minutes for a slot to open up!",
-    btn_understood: "Understood",
-
-    ble_modal_title: "Bluetooth Setup & Preparation",
-    ble_step_1_title: "Turn On Bluetooth on your Phone",
-    ble_step_1_desc: "Swipe down for Quick Settings (or open Settings) and make sure Bluetooth is toggled ON.",
-    ble_step_2_title: "Wake Your Sphero BOLT",
-    ble_step_2_desc: "Give your Sphero BOLT a quick shake. Its 8x8 LED matrix will light up with its ID.",
-    ble_step_3_title: "Pair & Connect",
-    ble_step_3_desc: "Connect directly from your smartphone browser, or connect to your Arch Linux laptop server.",
-    btn_pair_ble: "Scan & Pair Sphero via Bluetooth",
-    or_connect_server: "— OR CONNECT TO ARCH LINUX LAPTOP —",
-    btn_connect_server: "Connect Server"
-  }
+    mirror: "Mirror",
+    reset: "Reset",
+    all_three: "All",
+    mirrored: "mirrored",
+    started_x: "Started: {name}",
+    offline_sim: "No server: programs run in simulation.",
+  },
 };
 
-function t(key) {
-  if (I18N[currentLang] && I18N[currentLang][key]) return I18N[currentLang][key];
-  if (I18N.en && I18N.en[key]) return I18N.en[key];
-  return key;
+// Program names and short descriptions shown in the Shows / Games lists.
+const PROGRAM_INFO = {
+  drive: { kind: "drive", robots: 3,
+    hu: ["Vezetés", "Botkormányos irányítás telefonról vagy a laptopról."],
+    en: ["Drive", "Joystick control from a phone or the laptop."] },
+  neu: { kind: "show", robots: 7,
+    hu: ["Neumann felirat", "Az 1-7. robot egy-egy betűt mutat: N E U M A N N. Tedd őket sorban egymás mellé, balról jobbra."],
+    en: ["Neumann formation", "Robots 1-7 show one letter each: N E U M A N N. Line them up left to right."] },
+  dance: { kind: "show", robots: 15,
+    hu: ["Szinkrontánc", "Minden szabad robot sorban (Bluetooth adapterenként max 10, két adapterrel 15): szivárvány hullám forgással, száguldás robbanással ütközéskor, véletlen betűk és tánc, végül haza. Kb. 4 perc."],
+    en: ["Dance show", "All free robots in a line (10 per Bluetooth adapter, 15 with two adapters): rainbow wave with turns, a rush with explosions on collisions, random characters and dancing, then home. About 4 min."] },
+  roam: { kind: "show", robots: 3,
+    hu: ["Önálló bolyongás", "Minden robot a saját 25 cm-es körében járőrözik, amíg le nem állítod."],
+    en: ["Autonomous roam", "Each robot wanders inside its own 25 cm circle until you stop it."] },
+  tictactoe: { kind: "game", robots: 9,
+    hu: ["Amőba", "9 robot 3x3-as rácsban. Rázz meg egy labdát vagy koppints a mezőre. X kezd."],
+    en: ["Tic-tac-toe", "9 robots in a 3x3 grid. Shake a ball or tap a square. X starts."] },
+  potato: { kind: "game", robots: 1,
+    hu: ["Forró krumpli", "Add körbe a labdát, mielőtt felrobban! Egyre gyorsabban villog."],
+    en: ["Hot potato", "Pass the ball around before it explodes! It blinks faster and faster."] },
+  simon: { kind: "game", robots: 4,
+    hu: ["Simon mondja", "Jegyezd meg a fények sorrendjét, és ismételd meg. Minden szint egy lépéssel hosszabb."],
+    en: ["Simon says", "Remember the order of the lights and repeat it. Each level adds a step."] },
+  mole: { kind: "game", robots: 4,
+    hu: ["Vakondvadászat", "Koppints a zölden világító labdára, mielőtt kialszik! 60 mp."],
+    en: ["Whack-a-mole", "Tap the ball that lights up green before it goes dark! 60 s."] },
+  rps: { kind: "game", robots: 2,
+    hu: ["Kő-papír-olló", "Piros a kék ellen: 3-2-1 után mutatják a választást. 2 nyert körig."],
+    en: ["Rock-paper-scissors", "Red vs blue: after 3-2-1 they reveal their pick. First to 2 wins."] },
+};
+
+function programTitle(id) {
+  const p = PROGRAM_INFO[id];
+  return p ? p[currentLang][0] : id;
+}
+
+function t(key, vars) {
+  let s = (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
+  return s;
 }
 
 function updateSoundButton() {
-  const btn = $("sound-toggle");
-  if (!btn) return;
-  const icon = soundOn
-    ? '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
-    : '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
-  btn.innerHTML = `${icon} <span id="sound-label">${soundOn ? t("sound_on") : t("sound_off")}</span>`;
+  const use = $("sound-icon");
+  if (use) use.setAttribute("href", soundOn ? "#i-sound" : "#i-mute");
 }
 
 function setLanguage(lang) {
   currentLang = lang;
-  localStorage.setItem("sphero_lang", lang);
+  store.set("sphero_lang", lang);
   document.documentElement.lang = lang;
   if ($("lang-label")) $("lang-label").textContent = lang.toUpperCase();
-
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
-    if (key) el.textContent = t(key);
-  });
-
-  updateSoundButton();
-  renderStatus();
-  if (connectedClients.length > 0) renderClients(connectedClients);
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  refreshAllViews();
 }
 
-function toggleLanguage() {
-  setLanguage(currentLang === "hu" ? "en" : "hu");
-}
-
-if ($("lang-toggle")) $("lang-toggle").onclick = toggleLanguage;
+if ($("lang-toggle")) $("lang-toggle").onclick = () => setLanguage(currentLang === "hu" ? "en" : "hu");
+soundOn = store.get("sphero_sound") !== "off";
 if ($("sound-toggle")) $("sound-toggle").onclick = () => {
   soundOn = !soundOn;
+  store.set("sphero_sound", soundOn ? "on" : "off");
   updateSoundButton();
 };
-
 
 // ==========================================
 // 2. 8x8 LED Matrix Font Engine
@@ -433,6 +537,8 @@ const GLYPHS = {
   "N": ["XX....XX", "XXX...XX", "XXXX..XX", "XX.XX.XX", "XX..XXXX", "XX...XXX", "XX....XX", "XX....XX"],
   "E": ["XXXXXXXX", "XXXXXXXX", "XX......", "XXXXXX..", "XXXXXX..", "XX......", "XXXXXXXX", "XXXXXXXX"],
   "U": ["XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX", "XXXXXXXX", ".XXXXXX."],
+  "M": ["XX....XX", "XXX..XXX", "XXXXXXXX", "XX.XX.XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX"],
+  "A": ["..XXXX..", ".XXXXXX.", "XX....XX", "XX....XX", "XXXXXXXX", "XXXXXXXX", "XX....XX", "XX....XX"],
   "Arrow": ["...XX...", "..XXXX..", ".XXXXXX.", "XXXXXXXX", "...XX...", "...XX...", "...XX...", "...XX..."],
   "Rock": ["..XXXX..", ".XXXXXX.", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX", ".XXXXXX.", "..XXXX.."],
   "Paper": ["XXXXXX..", "X....XX.", "X.....XX", "X.XXX..X", "X......X", "X.XXXX.X", "X......X", "XXXXXXXX"],
@@ -465,25 +571,25 @@ function makeSolidMatrix(colorHex) {
 }
 
 // ==========================================
-// 3. Tab Navigation / View Switching
+// 3. Control Tabs (Drive / Shows / Games)
 // ==========================================
-let activeTab = "intro";
+let activeTab = "drive";
+const TAB_FOR = { drive: "drive", shows: "shows", games: "games", tictactoe: "games", arena: null };
+
 function switchTab(tabId) {
-  activeTab = tabId;
-  document.querySelectorAll(".nav-tab").forEach(tab => {
-    tab.classList.toggle("active", tab.dataset.tab === tabId);
-  });
-  document.querySelectorAll(".view-page").forEach(page => {
-    page.classList.toggle("active", page.id === `view-${tabId}`);
-  });
+  const target = TAB_FOR[tabId] === undefined ? tabId : TAB_FOR[tabId];
+  if (!target || document.body.classList.contains("role-controller")) return;
+  activeTab = target;
+  document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === target));
+  document.querySelectorAll(".tab-page").forEach((page) => page.classList.toggle("active", page.id === `tab-${target}`));
 }
-document.querySelectorAll(".nav-tab").forEach(btn => {
-  btn.onclick = () => switchTab(btn.dataset.tab);
-});
+document.querySelectorAll(".tab").forEach((btn) => { btn.onclick = () => switchTab(btn.dataset.tab); });
 
 // ==========================================
-// 4. Activity Output Log
+// 4. Activity Log (slide-over drawer)
 // ==========================================
+let unreadLog = 0, unreadErr = false;
+
 function addLine(line) {
   const log = $("log");
   if (!log) return;
@@ -491,14 +597,68 @@ function addLine(line) {
   const div = document.createElement("div");
   div.className = "log-line";
   div.textContent = line;
+  const isErr = /error|failed|traceback|exception|hiba|sikertelen/i.test(line);
   if (line.startsWith("===")) div.className += " sys";
-  else if (/error|failed|traceback|exception/i.test(line)) div.className += " err";
-  else if (/wins|score|victory/i.test(line)) div.className += " win";
+  else if (isErr) div.className += " err";
+  else if (/wins|score|victory|nyert/i.test(line)) div.className += " win";
   log.appendChild(div);
   while (log.childNodes.length > 1000) log.removeChild(log.firstChild);
   if (atBottom) log.scrollTop = log.scrollHeight;
+
+  if (!$("log-drawer").classList.contains("open")) {
+    unreadLog++;
+    unreadErr = unreadErr || isErr;
+    renderLogBadge();
+  }
 }
-if ($("clear-log")) $("clear-log").onclick = () => { if ($("log")) $("log").innerHTML = ""; };
+
+function renderLogBadge() {
+  const b = $("log-badge");
+  if (!b) return;
+  b.hidden = unreadLog === 0;
+  b.textContent = unreadLog > 99 ? "99+" : String(unreadLog);
+  b.classList.toggle("err", unreadErr);
+}
+
+function openLog() {
+  $("log-drawer").classList.add("open");
+  $("log-drawer").setAttribute("aria-hidden", "false");
+  $("drawer-backdrop").hidden = false;
+  unreadLog = 0; unreadErr = false;
+  renderLogBadge();
+  const log = $("log");
+  log.scrollTop = log.scrollHeight;
+}
+
+function closeLog() {
+  $("log-drawer").classList.remove("open");
+  $("log-drawer").setAttribute("aria-hidden", "true");
+  $("drawer-backdrop").hidden = true;
+}
+
+$("btn-log").onclick = () => ($("log-drawer").classList.contains("open") ? closeLog() : openLog());
+$("close-log").onclick = closeLog;
+$("drawer-backdrop").onclick = closeLog;
+$("clear-log").onclick = () => { $("log").innerHTML = ""; };
+
+let toastTimer = null;
+function toast(msg, isErr = false) {
+  const el = $("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle("err", isErr);
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  closeLog();
+  document.querySelectorAll(".modal-overlay").forEach((m) => {
+    if (m.id === "modal-admin-settings" || m.id === "modal-bluetooth") m.hidden = true;
+  });
+});
 
 // ==========================================
 // 5. Global State & Programs
@@ -507,17 +667,7 @@ let programs = [];
 let state = { running: null, started: null, last_exit: null };
 let ws = null, online = false, clientMode = false;
 
-const DEFAULT_PROGRAMS = [
-  { id: "dance", title: "Dance Show", description: "Synchronized choreography: spins, circles, shuffles, individual solos, orbital circle, and rainbow finale.", moves: true, kind: "show" },
-  { id: "neu", title: "Neumann Formation", description: "Robots roll into formation, align to heading, and scroll the glowing NEUMANN school name on matrices.", moves: true, kind: "show" },
-  { id: "roam", title: "Autonomous Roam", description: "All 3 robots explore within their floor zone, smoothly turning and avoiding collisions.", moves: true, kind: "show" },
-  { id: "drive", title: "Joystick Drive", description: "Remote control driving with the virtual joystick! Smooth steering, speed throttle, and zero lag.", moves: true, kind: "drive" },
-  { id: "potato", title: "Hot Potato", description: "Pass the potato before the fuse burns down! Ticking accelerates until a loud boom and scream explosion!", moves: false, kind: "game" },
-  { id: "mole", title: "Whack-a-Mole", description: "A random ball flashes neon green: tap it fast before it disappears! 60s reflex round with score.", moves: false, kind: "game" },
-  { id: "simon", title: "Simon Says", description: "Watch the pattern of glowing colors and musical tones, then repeat it back! Level progression.", moves: false, kind: "game" },
-  { id: "rps", title: "Rock-Paper-Scissors", description: "Red vs Blue showdown! 3-2-1 countdown, reveals gestures on 8x8 matrix, first to 2 wins.", moves: false, kind: "game" },
-  { id: "tictactoe", title: "Tic-Tac-Toe", description: "9 robots arranged in a 3x3 floor grid with live numbering, alternating X and O, and winning line.", moves: false, kind: "game" },
-];
+const DEFAULT_PROGRAMS = Object.keys(PROGRAM_INFO).map((id) => ({ id, title: PROGRAM_INFO[id].en[0] }));
 
 let connectedTarget = null;
 let bleDevice = null;
@@ -528,26 +678,128 @@ function renderStatus() {
   const pill = $("status"), text = $("status-text");
   if (!pill || !text) return;
   const isConn = online && (connectedTarget || (ws && ws.readyState === WebSocket.OPEN));
-  pill.className = "pill" + (!isConn ? " offline" : state.running ? " running" : " online");
-  if (!isConn) {
-    text.textContent = t("status_offline");
-  } else if (state.running) {
-    const p = programs.find((x) => x.id === state.running) || DEFAULT_PROGRAMS.find((x) => x.id === state.running);
-    const secs = Math.round(Date.now() / 1000 - state.started);
-    const title = p ? p.title : state.running;
-    text.textContent = `${t("status_running")}: ${title} (${secs} ${currentLang === "hu" ? "mp" : "s"})`;
+  pill.className = "pill" + (state.running ? " running" : isConn ? " online" : " offline");
+
+  if (state.running) {
+    text.textContent = `${t("status_running")}: ${programTitle(state.running)}`;
+  } else if (isConn) {
+    text.textContent = state.simulation ? `${t("status_connected")} (${t("status_sim")})` : t("status_connected");
+  } else if (clientMode) {
+    text.textContent = t("status_sim");
   } else {
-    text.textContent = connectedTarget ? `${t("status_connected")}: ${connectedTarget}` : t("status_connected");
+    text.textContent = t("status_offline");
   }
-  if ($("global-stop")) $("global-stop").disabled = !state.running;
+
+  const stopBtn = $("global-stop");
+  if (stopBtn) stopBtn.disabled = !state.running;
+  if ($("btn-bluetooth")) $("btn-bluetooth").hidden = isConn || !clientMode;
+  // The arena shows robot positions, which only the simulation reports. With real
+  // robots it would stay empty, so it is hidden.
+  if ($("panel-arena")) $("panel-arena").hidden = !clientMode && isConn && state.simulation === false;
+
+  const strip = $("running-strip");
+  if (strip) {
+    strip.hidden = !state.running;
+    if (state.running) {
+      const secs = state.started ? Math.max(0, Math.round(Date.now() / 1000 - state.started)) : 0;
+      const mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, "0");
+      $("running-text").textContent = `${t("status_running")}: ${programTitle(state.running)} · ${mm}:${ss}`;
+    }
+  }
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    const id = state.running;
+    const runsHere = id && PROGRAM_INFO[id] && (PROGRAM_INFO[id].kind === tab.dataset.tab.replace(/s$/, "")
+      || (tab.dataset.tab === "drive" && id === "drive"));
+    let dot = tab.querySelector(".run-dot");
+    if (runsHere && !dot) {
+      dot = document.createElement("span");
+      dot.className = "run-dot";
+      tab.appendChild(dot);
+    } else if (!runsHere && dot) {
+      dot.remove();
+    }
+  });
+
+  renderProgramLists();
+  renderControllerWait();
+  renderDriveHint();
+  renderCalib();
+}
+setInterval(() => { if (state.running) renderStatus(); }, 1000);
+
+function stopProgram() {
+  if (clientMode) {
+    clientStop();
+  } else {
+    fetch("/api/stop", { method: "POST" }).catch(() => clientStop());
+  }
+}
+$("running-stop").onclick = stopProgram;
+function stopCurrentProgram() { stopProgram(); }
+
+// ---------- Shows / games option lists ----------
+let selectedShow = "neu";
+let selectedGame = "tictactoe";
+
+function renderOptionList(boxId, kind, selected, onPick) {
+  const box = $(boxId);
+  if (!box) return;
+  box.innerHTML = "";
+  for (const [id, info] of Object.entries(PROGRAM_INFO)) {
+    if (info.kind !== kind) continue;
+    const [title, desc] = info[currentLang];
+    const b = document.createElement("button");
+    b.type = "button";
+    const running = state.running === id;
+    b.className = "option" + (id === selected ? " selected" : "") + (running ? " running" : "");
+    b.innerHTML = `<span class="opt-title"></span><span class="opt-desc"></span>`;
+    b.querySelector(".opt-title").textContent = title;
+    const meta = document.createElement("span");
+    meta.className = "opt-meta";
+    meta.textContent = running ? t("running_label") : t("robots_needed", { n: info.robots });
+    b.querySelector(".opt-title").appendChild(meta);
+    b.querySelector(".opt-desc").textContent = desc;
+    b.onclick = () => onPick(id);
+    box.appendChild(b);
+  }
 }
 
+function renderProgramLists() {
+  renderOptionList("show-list", "show", selectedShow, (id) => { selectedShow = id; renderProgramLists(); });
+  renderOptionList("game-list", "game", selectedGame, (id) => { selectedGame = id; renderProgramLists(); });
+
+  if ($("neu-settings")) $("neu-settings").hidden = selectedShow !== "neu";
+  if ($("dance-settings")) $("dance-settings").hidden = selectedShow !== "dance";
+  renderDance();
+  const showLabel = $("btn-start-show-label");
+  if (showLabel) showLabel.textContent = t(state.running === selectedShow ? "restart_x" : "start_x", { name: programTitle(selectedShow) });
+  const gameLabel = $("btn-start-game-label");
+  if (gameLabel) gameLabel.textContent = t(state.running === selectedGame ? "restart_x" : "start_x", { name: programTitle(selectedGame) });
+
+  const isTtt = selectedGame === "tictactoe";
+  if ($("card-game-tictactoe")) $("card-game-tictactoe").hidden = !isTtt;
+  if ($("card-game-party")) $("card-game-party").hidden = isTtt;
+  if (!isTtt && !(gameState && gameState.kind === "party" && gameState.game === selectedGame)) {
+    if ($("party-status")) $("party-status").textContent = programTitle(selectedGame);
+    if ($("party-info")) $("party-info").textContent = t("party_idle");
+    if ($("balls")) $("balls").innerHTML = "";
+  }
+  if ($("party-start")) $("party-start").hidden = state.running !== selectedGame;
+
+  const driveBtn = $("btn-start-drive");
+  if (driveBtn) driveBtn.disabled = state.running === "drive";
+}
+
+$("btn-start-show").onclick = () => startProgram(selectedShow);
+$("btn-start-game").onclick = () => startProgram(selectedGame);
+
 // ==========================================
-// 6. Virtual Joystick (Smooth Zero-Lag RC)
+// 6. Virtual Joystick
 // ==========================================
 let joystickHeading = 0;
 let joystickSpeed = 0;
-let activeBotIndex = 1; // 1 = BOLT 1 (Red), 2 = BOLT 2 (Green), 3 = BOLT 3 (Blue)
+let activeBotIndex = 1;      // robot number driven from this browser
 let joystickDragging = false;
 let joystickAnimId = null;
 let lastJoystickSend = 0;
@@ -556,46 +808,34 @@ const joyBase = $("joy-base");
 const joyKnob = $("joy-knob");
 
 function setKnobPosition(x, y) {
-  if (!joyKnob) return;
-  joyKnob.style.transform = `translate(${x}px, ${y}px)`;
+  if (joyKnob) joyKnob.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function updateJoystickHUD(headingDeg, speedPercent) {
-  if ($("hud-heading")) {
-    const cardinals = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"];
-    const card = cardinals[Math.round(headingDeg / 45) % 8];
-    $("hud-heading").textContent = `${Math.round(headingDeg)}° ${card}`;
-  }
-  if ($("hud-speed")) {
-    $("hud-speed").textContent = `${Math.round(speedPercent)}%`;
-  }
+  if ($("hud-heading")) $("hud-heading").textContent = `${Math.round(headingDeg)}°`;
+  if ($("hud-speed")) $("hud-speed").textContent = `${Math.round(speedPercent)}%`;
+}
+
+function joystickRadius() {
+  if (!joyBase || !joyKnob) return 65;
+  return (joyBase.clientWidth - joyKnob.offsetWidth) / 2;
 }
 
 function handleJoystickMove(clientX, clientY) {
   if (!joyBase) return;
   const rect = joyBase.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-
-  const dx = clientX - centerX;
-  const dy = clientY - centerY;
+  const dx = clientX - (rect.left + rect.width / 2);
+  const dy = clientY - (rect.top + rect.height / 2);
   const dist = Math.hypot(dx, dy);
-  const maxRadius = 65; // px
-
+  const maxRadius = joystickRadius();
   const clampedDist = Math.min(dist, maxRadius);
-  const angleRad = Math.atan2(dx, -dy); // 0 at top, clockwise
-  let heading = (angleRad * 180 / Math.PI + 360) % 360;
+  const heading = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;   // 0 = up, clockwise
 
-  const knobX = (dx / (dist || 1)) * clampedDist;
-  const knobY = (dy / (dist || 1)) * clampedDist;
+  setKnobPosition((dx / (dist || 1)) * clampedDist, (dy / (dist || 1)) * clampedDist);
 
-  setKnobPosition(knobX, knobY);
-
-  // Speed: deadzone of 8px
-  const speed = dist < 8 ? 0 : (clampedDist / maxRadius) * 100;
+  const speed = dist < maxRadius * 0.12 ? 0 : (clampedDist / maxRadius) * 100;
   joystickHeading = heading;
   joystickSpeed = speed;
-
   updateJoystickHUD(heading, speed);
   dispatchDrive(heading, speed);
 }
@@ -608,61 +848,57 @@ function snapKnobToCenter() {
   if (joystickAnimId) cancelAnimationFrame(joystickAnimId);
   let startX = 0, startY = 0;
   if (joyKnob) {
-    const style = window.getComputedStyle(joyKnob);
-    const matrix = new DOMMatrixReadOnly(style.transform);
-    startX = matrix.m41;
-    startY = matrix.m42;
+    const m = new DOMMatrixReadOnly(window.getComputedStyle(joyKnob).transform);
+    startX = m.m41; startY = m.m42;
   }
-
   let startTime = null;
   function animateSnap(time) {
     if (!startTime) startTime = time;
     const progress = Math.min(1, (time - startTime) / 120);
     const ease = 1 - Math.pow(1 - progress, 3);
-    const currX = startX * (1 - ease);
-    const currY = startY * (1 - ease);
-    setKnobPosition(currX, currY);
-    if (progress < 1) {
-      joystickAnimId = requestAnimationFrame(animateSnap);
-    } else {
-      setKnobPosition(0, 0);
-    }
+    setKnobPosition(startX * (1 - ease), startY * (1 - ease));
+    if (progress < 1) joystickAnimId = requestAnimationFrame(animateSnap);
   }
   joystickAnimId = requestAnimationFrame(animateSnap);
 }
 
-function dispatchDrive(heading, speedPercent) {
-  // 1. Simulation update
-  if (clientRobots && clientRobots.length > 0) {
+function dispatchDrive(heading, speedPercent, force = false) {
+  // 1. Simulation preview
+  if (clientMode && clientRobots && clientRobots.length > 0) {
     const targetBot = clientRobots[activeBotIndex - 1] || clientRobots[0];
     if (targetBot) {
-      targetBot.heading = heading;
-      targetBot.speed = (speedPercent / 100) * 50; // cm/s
-      if (speedPercent > 5) {
-        targetBot.matrix = makeMatrix("Arrow", targetBot.baseColor);
-      }
+      targetBot.heading = (heading + calibOffset(activeBotIndex)) % 360;
+      targetBot.speed = (speedPercent / 100) * 50;   // cm/s
+      if (speedPercent > 5) targetBot.matrix = makeMatrix("Arrow", targetBot.baseColor);
     }
   }
 
-  // 2. Throttled dispatch (20 Hz) or immediate stop
+  // 2. Throttled send (20 Hz), stops always go out immediately
   const now = Date.now();
-  if (now - lastJoystickSend > 50 || speedPercent === 0) {
+  if (force || now - lastJoystickSend > 50 || speedPercent === 0) {
     lastJoystickSend = now;
     if (bleApiChar) {
-      bleDrive(speedPercent, heading);
+      bleDrive(speedPercent, (heading + calibOffset(activeBotIndex)) % 360);
     } else if (ws && ws.readyState === WebSocket.OPEN) {
-      const spheroSpeed = (speedPercent / 100) * 255;
       ws.send(JSON.stringify({
         type: "joystick",
         heading: Math.round(heading),
-        speed: Math.round(spheroSpeed),
+        speed: Math.round((speedPercent / 100) * 255),
         robot: activeBotIndex,
       }));
     }
   }
 }
 
-if (joyBase && joyKnob) {
+// The drive program stops a robot that gets no command for 1 s, so a held
+// stick (or held key) repeats its last command.
+setInterval(() => {
+  if ((joystickDragging || activeKeys.size > 0) && joystickSpeed > 0) {
+    dispatchDrive(joystickHeading, joystickSpeed, true);
+  }
+}, 300);
+
+if (joyBase) {
   joyBase.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     joystickDragging = true;
@@ -670,29 +906,99 @@ if (joyBase && joyKnob) {
     handleJoystickMove(e.clientX, e.clientY);
   });
   joyBase.addEventListener("pointermove", (e) => {
-    if (joystickDragging) {
-      e.preventDefault();
-      handleJoystickMove(e.clientX, e.clientY);
-    }
+    if (!joystickDragging) return;
+    e.preventDefault();
+    handleJoystickMove(e.clientX, e.clientY);
   });
-  const pointerEnd = (e) => {
-    if (joystickDragging) {
-      joystickDragging = false;
-      snapKnobToCenter();
-    }
+  const pointerEnd = () => {
+    if (!joystickDragging) return;
+    joystickDragging = false;
+    snapKnobToCenter();
   };
   joyBase.addEventListener("pointerup", pointerEnd);
   joyBase.addEventListener("pointercancel", pointerEnd);
+  joyBase.addEventListener("lostpointercapture", pointerEnd);
 }
 
-// Bot Chip Selector
-document.querySelectorAll(".bot-chip").forEach(chip => {
-  chip.onclick = () => {
-    document.querySelectorAll(".bot-chip").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
-    activeBotIndex = parseInt(chip.dataset.bot, 10) || 1;
-  };
+// Robot selector for the host (phones always drive their own robot)
+function renderBotSelector() {
+  const box = $("bot-selector");
+  if (!box) return;
+  box.innerHTML = "";
+  const colors = ["var(--r1)", "var(--r2)", "var(--r3)"];
+  for (let n = 1; n <= 3; n++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "seg" + (n === activeBotIndex ? " active" : "");
+    b.style.setProperty("--c", colors[n - 1]);
+    b.textContent = `BOLT ${n}`;
+    b.onclick = () => { activeBotIndex = n; renderBotSelector(); renderCalib(); };
+    box.appendChild(b);
+  }
+}
+
+// ---------- Drive calibration ----------
+// Robot number -> forward heading in degrees. Pushing the joystick up drives the
+// robot at this heading, so "up" is away from the driver. Applied by the drive
+// program on the server; in simulation and direct Bluetooth mode by this page.
+let calibOffsets = {};
+let calibDragging = false;
+let lastCalibSend = 0;
+
+function calibRobot() {
+  return myRole === "controller" ? mySlot : activeBotIndex;
+}
+
+function calibOffset(robot = calibRobot()) {
+  return Number(calibOffsets[robot] || 0);
+}
+
+function calibAvailable() {
+  return clientMode || !!bleApiChar || state.running === "drive";
+}
+
+function renderCalib() {
+  const slider = $("calib-slider");
+  if (!slider) return;
+  const off = calibOffset();
+  const v = off > 180 ? off - 360 : off;
+  if (!calibDragging) slider.value = String(v);
+  $("calib-val").textContent = `${calibDragging ? slider.value : v}°`;
+  $("calib-robot").textContent = myRole === "controller" ? "" : `· BOLT ${calibRobot()}`;
+  const ok = calibAvailable();
+  ["calib-slider", "calib-minus", "calib-plus", "calib-reset"].forEach((id) => { $(id).disabled = !ok; });
+  $("calib-box").classList.toggle("disabled", !ok);
+  $("calib-hint").textContent = t(ok ? "calib_hint" : "calib_off_hint");
+}
+
+function sendCalibration(value, force = false) {
+  const robot = calibRobot();
+  const offset = ((Math.round(value) % 360) + 360) % 360;
+  calibOffsets[robot] = offset;
+  $("calib-val").textContent = `${offset > 180 ? offset - 360 : offset}°`;
+  const now = Date.now();
+  if (!force && now - lastCalibSend < 120) return;
+  lastCalibSend = now;
+  if (ws && ws.readyState === WebSocket.OPEN && !clientMode) {
+    ws.send(JSON.stringify({ type: "calibrate", robot, offset }));
+  } else if (bleApiChar) {
+    bleDrive(0, offset);                      // turn in place to the new forward
+  } else if (clientRobots[robot - 1]) {
+    const bot = clientRobots[robot - 1];
+    bot.heading = offset;
+    bot.matrix = makeMatrix("Arrow", bot.baseColor);
+  }
+}
+
+$("calib-slider").addEventListener("input", (e) => { calibDragging = true; sendCalibration(Number(e.target.value)); });
+$("calib-slider").addEventListener("change", (e) => {
+  calibDragging = false;
+  sendCalibration(Number(e.target.value), true);
+  renderCalib();
 });
+$("calib-minus").onclick = () => { sendCalibration(calibOffset() - 15, true); renderCalib(); };
+$("calib-plus").onclick = () => { sendCalibration(calibOffset() + 15, true); renderCalib(); };
+$("calib-reset").onclick = () => { sendCalibration(0, true); renderCalib(); };
 
 // ==========================================
 // 7. 2D Live Arena (Floor Canvas)
@@ -718,9 +1024,7 @@ if ($("arena-shake-all")) {
 function updateTelemetry(data) {
   if (!data || !data.robots) return;
   arenaRobots = data.robots;
-  if ($("arena-stats")) {
-    $("arena-stats").textContent = `Robots: ${arenaRobots.length} simulated | Floor: 2.2x scale`;
-  }
+  if ($("arena-stats")) $("arena-stats").textContent = t("arena_stats", { n: arenaRobots.length });
   const now = Date.now() / 1000;
   for (const r of arenaRobots) {
     if (!trails[r.name]) trails[r.name] = [];
@@ -957,13 +1261,12 @@ const DEFAULT_TTT_CONFIG = {
   mirror: false,
 };
 
+const NEUMANN_COLOR = "#008cff";
 const DEFAULT_LETTER_CONFIG = {
-  heading: 270,
-  letters: [
-    { letter: "N", rotation: 0, mirror: false },
-    { letter: "E", rotation: 0, mirror: false },
-    { letter: "U", rotation: 0, mirror: false },
-  ],
+  align: "compass",
+  hand: false,
+  heading: 0,
+  letters: "NEUMANN".split("").map((letter) => ({ letter, rotation: 180, mirror: false, turn: 0 })),
 };
 
 let gameState = null;
@@ -1035,24 +1338,16 @@ function clientStop(resetState = true) {
   }
 }
 
-if ($("global-stop")) $("global-stop").onclick = () => {
-  if (clientMode) {
-    clientStop();
-  } else {
-    fetch("/api/stop", { method: "POST" }).catch(() => clientStop());
-  }
-};
+$("global-stop").onclick = stopProgram;
 
 function startProgram(id) {
-  if (!online && !connectedTarget) {
-    addLine("[NOTICE] Currently offline. Tap 'Connect' in the header to pair your Sphero BOLT via Bluetooth!");
-  }
+  toast(t("started_x", { name: programTitle(id) }));
   if (clientMode) {
     clientStart(id);
     return;
   }
   fetch(`/api/start/${id}`, { method: "POST" })
-    .then(r => { if (!r.ok) clientStart(id); })
+    .then((r) => { if (!r.ok) clientStart(id); })
     .catch(() => clientStart(id));
 }
 
@@ -1226,21 +1521,24 @@ function runClientDance() {
 // Neumann Formation
 // ------------------------------------------
 function runClientNeu() {
-  initClientRobots(3);
+  // one letter per robot, robots 1-7 in a row left to right
+  clientRobots = letterCfg.letters.map((item, i) => ({
+    name: `BOLT ${i + 1}`,
+    x: (i - (letterCfg.letters.length - 1) / 2) * 15, y: 0,
+    heading: 0, speed: 0,
+    front_led: "#ffffff", back_led: "#000000",
+    matrix: makeMatrix("Arrow", NEUMANN_COLOR),
+    homeX: (i - (letterCfg.letters.length - 1) / 2) * 15, homeY: 0,
+    baseColor: NEUMANN_COLOR,
+  }));
   let step = 0;
-  const neumannChars = ["N", "E", "U", "M", "A", "N", "N"];
-  addLine("=== Neumann Formation Active ===");
   clientLoopId = setInterval(() => {
     step++;
-    if (step < 25) {
-      clientRobots.forEach(r => { r.y = (step / 25) * 20; r.heading = 0; });
-    } else {
-      const targetHeading = letterCfg ? letterCfg.heading : 270;
-      const charIdx = Math.floor((step - 25) / 25) % neumannChars.length;
+    if (step === 25) {
       clientRobots.forEach((r, i) => {
-        r.heading = targetHeading;
-        const letter = neumannChars[(charIdx + i) % neumannChars.length];
-        r.matrix = makeMatrix(letter, r.baseColor, 0, false);
+        const l = letterCfg.letters[i];
+        r.heading = (letterCfg.heading + (l.turn || 0) + 360) % 360;
+        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, (l.rotation + 180) % 360, l.mirror);
       });
     }
     updateTelemetry({ robots: clientRobots });
@@ -1313,8 +1611,16 @@ const KEY_MAP = {
   KeyD: [1, 0], ArrowRight: [1, 0],
 };
 const activeKeys = new Set();
+function isTypingTarget(e) {
+  const tag = e.target && e.target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+window.addEventListener("blur", () => {
+  if (activeKeys.size) { activeKeys.clear(); evalKeys(); }
+});
 window.addEventListener("keydown", (e) => {
-  if (KEY_MAP[e.code]) {
+  if (KEY_MAP[e.code] && !isTypingTarget(e) && !e.repeat) {
+    if (e.code.startsWith("Arrow")) e.preventDefault();
     activeKeys.add(e.code);
     evalKeys();
   }
@@ -1940,7 +2246,7 @@ function handleClientShake(cell, robot) {
 }
 
 function renderGame() {
-  const game = gameState && gameState.kind !== "party" ? gameState : null;
+  const game = gameState && gameState.kind !== "party" && gameState.kind !== "dance" ? gameState : null;
   const board = $("board");
   if (!board) return;
   board.innerHTML = "";
@@ -1953,15 +2259,15 @@ function renderGame() {
 
   if ($("ttt-status")) {
     if (!running) {
-      $("ttt-status").textContent = "Start Tic-tac-toe to play.";
+      $("ttt-status").textContent = t("ttt_idle");
     } else if (numbering) {
-      $("ttt-status").textContent = `Numbering: shake or tap ball for square ${game.next} (${game.numbered} of 9 done).`;
+      $("ttt-status").textContent = t("ttt_numbering", { n: game.next, done: game.numbered });
     } else if (game.winner === "draw") {
-      $("ttt-status").textContent = "Draw! Press Same layout to play again.";
+      $("ttt-status").textContent = t("ttt_draw");
     } else if (game.winner) {
-      $("ttt-status").textContent = `${game.winner} wins! Press Same layout to play again.`;
+      $("ttt-status").textContent = t("ttt_win", { p: game.winner });
     } else {
-      $("ttt-status").innerHTML = `Turn: <span style="color:${game.turn === "X" ? "var(--r1)" : "var(--r3)"}">${game.turn}</span>`;
+      $("ttt-status").innerHTML = `${t("ttt_turn")} <span style="color:${game.turn === "X" ? "var(--r1)" : "var(--r3)"}">${game.turn}</span>`;
     }
   }
 
@@ -1970,8 +2276,8 @@ function renderGame() {
     const mark = running && !numbering ? game.board[c] : null;
     const cell = running ? game.cells[c] : null;
     b.className = "ttt-cell " + (mark || "num") + (running && game.line && game.line.includes(c) ? " win" : "");
-    const label = numbering ? (cell && cell.connected ? cell.robot : (c + 1 === game.next ? "shake next" : ""))
-      : cell ? (cell.connected ? cell.robot : "click to play") : "";
+    const label = numbering ? (cell && cell.connected ? cell.robot : (c + 1 === game.next ? t("ttt_shake_next") : ""))
+      : cell ? (cell.connected ? cell.robot : t("ttt_tap")) : "";
     b.innerHTML = `${mark || c + 1}<small>${label}</small>`;
     b.disabled = !running || numbering || !!mark || !!game.winner;
     b.onclick = () => sendGameAction({ action: "play", cell: c + 1 });
@@ -1985,19 +2291,17 @@ for (const [id, action] of [["ttt-new", "new"], ["ttt-recount", "recount"], ["tt
 
 function renderParty() {
   const g = gameState && gameState.kind === "party" ? gameState : null;
-  const container = $("party-container");
-  if (container) container.hidden = !g;
   if (!g) return;
-
-  if ($("party-title")) $("party-title").textContent = g.title;
-  if ($("party-status")) $("party-status").textContent = g.status;
-  if ($("party-info")) $("party-info").textContent = g.info;
+  if ($("party-status")) $("party-status").textContent = g.status || programTitle(g.game);
+  if ($("party-info")) $("party-info").textContent = g.info || "";
 
   const box = $("balls");
-  if (box && box.childNodes.length !== g.cells.length) {
+  if (!box) return;
+  if (box.childNodes.length !== g.cells.length) {
     box.innerHTML = "";
     g.cells.forEach((_, i) => {
       const b = document.createElement("button");
+      b.type = "button";
       b.className = "ball-btn";
       b.onclick = () => {
         playPop();
@@ -2006,56 +2310,154 @@ function renderParty() {
       box.appendChild(b);
     });
   }
-  if (box) {
-    g.cells.forEach((c, i) => {
-      const b = box.childNodes[i];
-      if (b) {
-        const [r, gr, bl] = [1, 3, 5].map((k) => parseInt((c.color || "#000000").slice(k, k + 2), 16) || 0);
-        const dark = 0.299 * r + 0.587 * gr + 0.114 * bl < 140;
-        b.style.background = c.color === "#000000" ? "var(--bg)" : c.color;
-        b.style.color = c.color === "#000000" ? "var(--text)" : dark ? "#fff" : "#111";
-        b.innerHTML = `<span>${c.label || ""}</span><small>${c.robot}</small>`;
-      }
-    });
-  }
+  g.cells.forEach((c, i) => {
+    const b = box.childNodes[i];
+    if (!b) return;
+    const col = c.color || "#000000";
+    const [r, gr, bl] = [1, 3, 5].map((k) => parseInt(col.slice(k, k + 2), 16) || 0);
+    const dark = 0.299 * r + 0.587 * gr + 0.114 * bl < 140;
+    const off = col === "#000000";
+    b.style.background = off ? "var(--panel-2)" : col;
+    b.style.color = off ? "var(--text)" : dark ? "#fff" : "#111";
+    b.innerHTML = `<span></span><small></small>`;
+    b.querySelector("span").textContent = c.label || "";
+    b.querySelector("small").textContent = c.robot || "";
+  });
 }
 if ($("party-start")) $("party-start").onclick = () => sendGameAction({ action: "start" });
 
-// Letters Controls
-const ROBOT_COLORS = ["var(--r1)", "var(--r2)", "var(--r3)"];
-const ROBOT_LABELS = ["BOLT 1", "BOLT 2", "BOLT 3"];
+// Dance show: robots left out, live phase and the Go / next part button
+let danceCfg = { exclude: [] };
+
+function renderDance() {
+  const box = $("dance-robots");
+  if (!box) return;
+  const g = gameState && gameState.kind === "dance" && state.running === "dance" ? gameState : null;
+  const numbers = currentRobots.length ? currentRobots.map((r, i) => r.id || i + 1)
+    : Array.from({ length: 15 }, (_, i) => i + 1);
+  const excluded = new Set(danceCfg.exclude || []);
+  const skipped = new Set(g ? g.skipped || [] : []);
+  const lost = new Set(g ? g.lost || [] : []);
+  box.innerHTML = "";
+  numbers.forEach((n) => {
+    const robot = currentRobots.find((r) => r.id === n);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "dance-robot" + (excluded.has(n) ? " out" : "") + (skipped.has(n) || lost.has(n) ? " busy" : "");
+    b.style.setProperty("--c", (robot && robot.color && robot.color.hex) || "var(--accent)");
+    b.textContent = n;
+    b.title = excluded.has(n) ? t("dance_out") : skipped.has(n) ? t("dance_busy") : lost.has(n) ? t("dance_lost") : t("dance_in");
+    b.onclick = () => toggleDanceRobot(n);
+    box.appendChild(b);
+  });
+
+  const live = $("dance-live");
+  if (!live) return;
+  live.hidden = !g;
+  if (!g) return;
+  const phaseText = t(`dance_phase_${g.phase}`);
+  $("dance-status").textContent = phaseText + (g.left ? ` · ${g.left} ${currentLang === "hu" ? "mp" : "s"}` : "")
+    + (g.robots ? ` · ${g.robots.length} ${t("robots_unit")}` : "");
+  const go = $("dance-go");
+  go.hidden = !["setup", "rainbow", "rush", "chars"].includes(g.phase);
+  go.textContent = t(g.phase === "setup" ? "dance_go" : "dance_next");
+}
+
+function toggleDanceRobot(n) {
+  if (clientMode) {
+    const set = new Set(danceCfg.exclude || []);
+    set.has(n) ? set.delete(n) : set.add(n);
+    danceCfg = { exclude: [...set].sort((a, b) => a - b) };
+    renderDance();
+    return;
+  }
+  fetch("/api/dance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toggle: n }),
+  }).then((r) => r.json()).then((cfg) => { danceCfg = cfg; renderDance(); }).catch(() => {});
+}
+
+$("dance-go").onclick = () => sendGameAction({ action: "start" });
+
+// Letters Controls (Neumann formation)
 
 function renderLetters() {
   if (!letterCfg) return;
+  if ($("heading-slider") && document.activeElement !== $("heading-slider")) $("heading-slider").value = String(letterCfg.heading);
+  if ($("heading-val")) $("heading-val").textContent = `${letterCfg.heading}°`;
+  const align = letterCfg.align || "compass";
+  const hand = !!letterCfg.hand;
+  const lock = $("hand-lock");
+  if (lock) {
+    lock.classList.toggle("locked", hand);
+    $("hand-lock-label").textContent = t(hand ? "hand_on" : "hand_off");
+    $("hand-hint").textContent = t(hand ? "hand_on_hint" : "hand_off_hint");
+  }
+  document.querySelectorAll("#align-seg .seg").forEach((b) => { b.disabled = hand; });
+  if ($("heading-slider")) $("heading-slider").disabled = hand;
+  document.querySelectorAll("#align-seg .seg").forEach((b) => b.classList.toggle("active", b.dataset.align === align));
+  if ($("align-hint")) $("align-hint").textContent = t(align === "compass" ? "align_compass_hint" : "align_aim_hint");
+
   const box = $("letter-rows");
   if (!box) return;
   box.innerHTML = "";
-  const row = (target, big, color, who, state) => {
+  const row = (target, big, color, who, stateText) => {
     const el = document.createElement("div");
     el.className = "letter-row";
-    el.innerHTML = `<span class="letter-big" style="color:${color}">${big}</span><span class="letter-who">${who}</span>
-      <span class="letter-state">${state}</span>
-      <button class="sm" data-a="ccw">&#8634; 90&deg;</button>
-      <button class="sm" data-a="cw">&#8635; 90&deg;</button>
-      <button class="sm" data-a="mirror">Mirror</button>
-      <button class="sm" data-a="reset">Reset</button>`;
-    el.querySelectorAll("button").forEach((b) => b.onclick = () => changeLetters({ target, action: b.dataset.a }));
+    el.innerHTML = `<span class="letter-big" style="color:${color}"></span><span class="letter-who"></span>
+      <span class="letter-state"></span>
+      <span class="letter-group"><small></small>
+        <button class="ghost sm" type="button" data-a="ccw">&#8634;</button>
+        <button class="ghost sm" type="button" data-a="cw">&#8635;</button></span>
+      <span class="letter-group"><small></small>
+        <button class="ghost sm" type="button" data-a="left">&minus;15&deg;</button>
+        <button class="ghost sm" type="button" data-a="right">+15&deg;</button></span>
+      <button class="ghost sm" type="button" data-a="mirror"></button>
+      <button class="ghost sm" type="button" data-a="reset"></button>`;
+    el.querySelector(".letter-big").textContent = big;
+    el.querySelector(".letter-who").textContent = who;
+    el.querySelector(".letter-state").textContent = stateText;
+    const groups = el.querySelectorAll(".letter-group small");
+    groups[0].textContent = t("letter_word");
+    groups[1].textContent = t("robot_word");
+    el.querySelector('[data-a="ccw"]').title = t("letter_ccw");
+    el.querySelector('[data-a="cw"]').title = t("letter_cw");
+    el.querySelector('[data-a="left"]').title = t("robot_left");
+    el.querySelector('[data-a="right"]').title = t("robot_right");
+    el.querySelector('[data-a="mirror"]').textContent = t("mirror");
+    el.querySelector('[data-a="reset"]').textContent = t("reset");
+    el.querySelectorAll("button").forEach((b) => { b.onclick = () => changeLetters({ target, action: b.dataset.a }); });
+    el.querySelectorAll('[data-a="left"], [data-a="right"]').forEach((b) => { b.disabled = !!letterCfg.hand; });
     box.appendChild(el);
   };
-  letterCfg.letters.forEach((item, i) =>
-    row(i, item.letter, ROBOT_COLORS[i], ROBOT_LABELS[i], `${item.rotation}&deg;${item.mirror ? ", mirrored" : ""}`));
-  row("all", "&#8727;", "var(--muted)", "All three", "");
-  if ($("heading")) $("heading").value = String(letterCfg.heading);
+  letterCfg.letters.forEach((item, i) => {
+    const turn = item.turn || 0;
+    row(i, item.letter, NEUMANN_COLOR, `BOLT ${i + 1}`,
+      `${item.rotation}°` + (turn ? ` · ${t("robot_word")} ${turn > 0 ? "+" : ""}${turn}°` : "")
+      + (item.mirror ? ` · ${t("mirrored")}` : ""));
+  });
+  row("all", "*", "var(--muted)", t("all_three"), "");
 }
+
+document.querySelectorAll("#align-seg .seg").forEach((b) => {
+  b.onclick = () => changeLetters({ align: b.dataset.align });
+});
+$("hand-lock").onclick = () => changeLetters({ hand: !(letterCfg && letterCfg.hand) });
 
 function handleClientLetters(body) {
   if (body.heading !== undefined) letterCfg.heading = body.heading;
+  if (body.align) letterCfg.align = body.align;
+  if (body.hand !== undefined) letterCfg.hand = !!body.hand;
   if (body.target !== undefined && body.action) {
     const applyAction = (item) => {
+      item.turn = item.turn || 0;
       if (body.action === "cw") item.rotation = (item.rotation + 90) % 360;
       if (body.action === "ccw") item.rotation = (item.rotation + 270) % 360;
       if (body.action === "mirror") item.mirror = !item.mirror;
-      if (body.action === "reset") { item.rotation = 0; item.mirror = false; }
+      if (body.action === "left") item.turn = ((item.turn - 15 + 540) % 360) - 180;
+      if (body.action === "right") item.turn = ((item.turn + 15 + 540) % 360) - 180;
+      if (body.action === "reset") { item.rotation = 180; item.mirror = false; item.turn = 0; }
     };
     if (body.target === "all") {
       letterCfg.letters.forEach(applyAction);
@@ -2067,7 +2469,10 @@ function handleClientLetters(body) {
   if (state.running === "neu") {
     clientRobots.forEach((r, i) => {
       const l = letterCfg.letters[i];
-      if (l) r.matrix = makeMatrix(l.letter, r.baseColor, l.rotation, l.mirror);
+      if (l) {
+        r.heading = (letterCfg.heading + (l.turn || 0) + 360) % 360;
+        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, (l.rotation + 180) % 360, l.mirror);
+      }
     });
     updateTelemetry({ robots: clientRobots });
   }
@@ -2092,7 +2497,8 @@ async function changeLetters(body) {
   } catch (e) {}
   handleClientLetters(body);
 }
-if ($("heading")) $("heading").onchange = (e) => changeLetters({ heading: Number(e.target.value) });
+$("heading-slider").oninput = (e) => { $("heading-val").textContent = `${e.target.value}°`; };
+$("heading-slider").onchange = (e) => changeLetters({ heading: Number(e.target.value) });
 
 // ==========================================
 // 10. Web Bluetooth API Driver & Server Setup
@@ -2246,15 +2652,17 @@ if ($("modal-bluetooth")) {
 if ($("btn-scan-ble")) $("btn-scan-ble").onclick = connectWebBluetooth;
 
 // ==========================================
-// 11. QR Code & Device Management (Arch Host)
+// 11. QR Code, Phones, Robot Fleet
 // ==========================================
 let connectedClients = [];
+let maxClientSlots = 3;
+let myRole = null;          // "host" | "controller" (from the server)
+let mySlot = null;
+let myColor = null;
 
 async function initQRCode() {
   const box = $("qrcode-box");
-  const urlLabel = $("qr-url-text");
   if (!box) return;
-
   let targetUrl = window.location.href;
   try {
     const res = await fetch("/api/info");
@@ -2263,73 +2671,60 @@ async function initQRCode() {
       if (info.url) targetUrl = info.url;
     }
   } catch (e) {}
-
-  if (urlLabel) urlLabel.textContent = targetUrl;
-
+  if ($("qr-url-text")) $("qr-url-text").textContent = targetUrl.replace(/^https?:\/\//, "");
   box.innerHTML = "";
   if (typeof QRCode !== "undefined") {
     new QRCode(box, {
-      text: targetUrl,
-      width: 175,
-      height: 175,
-      colorDark: "#0b0e14",
-      colorLight: "#ffffff",
+      text: targetUrl, width: 264, height: 264,
+      colorDark: "#0b0e14", colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.M,
     });
   }
 }
 
-function renderClients(clients, maxSlots = 3) {
+const SLOT_COLORS = ["var(--r1)", "var(--r2)", "var(--r3)"];
+
+function renderClients(clients, maxSlots) {
   connectedClients = clients || [];
-  const badge = $("slots-badge");
-  const headerPill = $("slots-header-text");
+  if (maxSlots) maxClientSlots = maxSlots;
+  const n = connectedClients.length;
+  if ($("slots-badge")) $("slots-badge").textContent = `${n} / ${maxClientSlots}`;
+  if ($("phones-pill-text")) $("phones-pill-text").textContent = `${n} / ${maxClientSlots} ${t("phones_unit")}`;
+  if ($("phones-pill")) $("phones-pill").className = "pill host-only" + (n > 0 ? " online" : "");
+
   const list = $("connected-devices-list");
-  if (badge) {
-    const unit = currentLang === "hu" ? "telefon" : "phones";
-    badge.textContent = `${connectedClients.length} / ${maxSlots} ${unit}`;
-  }
-  if (headerPill) {
-    const unit = currentLang === "hu" ? "Telefon" : "Phones";
-    headerPill.textContent = `${connectedClients.length} / ${maxSlots} ${unit}`;
-  }
   if (!list) return;
-
-  if (connectedClients.length === 0) {
-    list.innerHTML = `<div style="color:var(--muted); font-size:0.85rem; text-align:center; padding:8px 0;">${t("no_devices_msg")}</div>`;
-    return;
-  }
-
   list.innerHTML = "";
+  if (n === 0) {
+    list.innerHTML = `<div class="empty"></div>`;
+    list.firstChild.textContent = t("no_devices_msg");
+  }
   connectedClients.forEach((c, idx) => {
+    const slot = c.slot || idx + 1;
+    let idleStr;
+    if (c.idle < 10) idleStr = t("active_now");
+    else if (c.idle < 60) idleStr = t("idle_secs", { n: c.idle });
+    else idleStr = t("idle_mins", { n: Math.floor(c.idle / 60) });
+
     const row = document.createElement("div");
     row.className = "device-row";
-
-    let idleStr = "";
-    if (c.idle < 10) {
-      idleStr = t("active_now");
-    } else if (c.idle < 60) {
-      idleStr = `${c.idle} ${t("idle_secs")}`;
-    } else {
-      idleStr = `${Math.floor(c.idle / 60)} ${t("idle_mins")}`;
-    }
-
-    const nameLabel = currentLang === "hu" ? `${idx + 1}. Telefon` : `Phone ${idx + 1}`;
     row.innerHTML = `
-      <div class="device-info">
-        <span class="dot"></span>
-        <div>
-          <b>${nameLabel}</b> <span style="font-family:var(--font-mono); color:var(--muted); font-size:0.8rem;">(${c.ip})</span>
-          <div class="device-time">${idleStr}</div>
-        </div>
-      </div>
-      <button class="stop sm" data-kick="${c.id}" style="padding:3px 8px; font-size:0.75rem;">${t("disconnect_btn")}</button>
-    `;
-    const btn = row.querySelector("button[data-kick]");
-    if (btn) {
-      btn.onclick = () => kickClient(c.id);
-    }
+      <span class="device-num" style="--c:${SLOT_COLORS[slot - 1] || "var(--accent)"}">${slot}</span>
+      <span class="device-meta"><b></b><small></small></span>
+      <button class="ghost sm" type="button"></button>`;
+    row.querySelector("b").textContent = t("phone_n", { n: slot });
+    row.querySelector("small").textContent = `${c.ip} · ${idleStr}`;
+    const btn = row.querySelector("button");
+    btn.textContent = t("disconnect_btn");
+    btn.onclick = () => kickClient(c.id);
     list.appendChild(row);
   });
+  renderDriveHint();
+}
+
+function renderDriveHint() {
+  const hint = $("drive-hint");
+  if (hint) hint.hidden = !(connectedClients.length > 0 && state.running !== "drive");
 }
 
 function kickClient(clientId) {
@@ -2340,26 +2735,168 @@ function kickClient(clientId) {
   }
 }
 
-function showTimeoutModal(message) {
-  const m = $("modal-timeout");
-  if (m) {
-    if (message) {
-      const desc = m.querySelector("[data-i18n='timeout_modal_desc']");
-      if (desc) desc.textContent = message;
-    }
-    m.hidden = false;
-  }
+// ---------- Robot fleet ----------
+let currentRobots = [];
+
+function batteryClass(pct) {
+  if (pct === null || pct === undefined) return "";
+  return pct >= 70 ? "ok" : pct >= 30 ? "mid" : "low";
 }
 
-function showMaxClientsModal(message) {
-  const m = $("modal-max-clients");
-  if (m) {
-    if (message) {
-      const desc = m.querySelector("[data-i18n='max_modal_desc']");
-      if (desc) desc.textContent = message;
-    }
-    m.hidden = false;
+function renderRobotPool(robots) {
+  if (robots) currentRobots = robots;
+  const n = currentRobots.length;
+  const low = currentRobots.filter((r) => typeof r.battery === "number" && r.battery < 30).length;
+
+  if ($("robots-pill-text")) {
+    $("robots-pill-text").textContent = `${n} ${t("robots_unit")}` + (low ? ` · ${t("low_batt", { n: low })}` : "");
   }
+  if ($("robots-pill")) $("robots-pill").className = "pill host-only" + (low ? " warn" : n ? " online" : "");
+  if ($("fleet-summary")) $("fleet-summary").textContent = n ? `${n}` + (low ? ` · ${t("low_batt", { n: low })}` : "") : "";
+
+  const container = $("robot-pool-cards");
+  if (!container) return;
+  container.innerHTML = "";
+  if (n === 0) {
+    container.innerHTML = `<div class="empty"></div>`;
+    container.firstChild.textContent = t("fleet_empty");
+    return;
+  }
+  currentRobots.forEach((r, idx) => {
+    const num = r.id || idx + 1;
+    const color = (r.color && r.color.hex) || SLOT_COLORS[(num - 1) % 3];
+    const hasBatt = typeof r.battery === "number";
+    const assigned = !!r.slot;
+
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "bot" + (assigned ? " assigned" : "");
+    b.dataset.robot = num;
+    b.style.setProperty("--c", color);
+    b.title = t("identify_title", { n: num }) + (assigned ? `\n${t("controlled_by", { n: r.slot })}` : "")
+      + (hasBatt ? (r.voltage ? `\n${r.voltage} V` : "") : `\n${t("battery_unknown")}`);
+    b.innerHTML = `
+      <span class="bot-num">${num}</span>
+      <span class="bot-meta">
+        <span class="batt"><i class="bdot ${batteryClass(r.battery)}"></i>${hasBatt ? `${r.battery}%` : "&ndash;"}</span>
+        <span class="bot-name"></span>
+      </span>
+      ${assigned ? `<span class="bot-phone"><svg class="icon"><use href="#i-phone"/></svg>${r.slot}</span>` : ""}`;
+    b.querySelector(".bot-name").textContent = r.raw_name || r.name;
+    b.onclick = () => identifyRobot(num);
+    container.appendChild(b);
+  });
+}
+
+function identifyRobot(id, quiet = false) {
+  const card = document.querySelector(`.bot[data-robot="${id}"]`);
+  if (card) {
+    card.classList.remove("flash");
+    void card.offsetWidth;
+    card.classList.add("flash");
+  }
+  if (!quiet) toast(t("identify_sent", { n: id }));
+  playTone(600, "sine", 0.08, 0.15);
+  if (clientMode) {
+    const bot = clientRobots[id - 1];
+    if (bot) {
+      shakeWobble[bot.name] = Date.now() + 600;
+      bot.matrix = makeMatrix(String(id), bot.baseColor);
+    }
+    return Promise.resolve();
+  }
+  return fetch(`/api/robots/${id}/identify`, { method: "POST" }).catch(() => {});
+}
+
+$("btn-identify-all").onclick = async () => {
+  toast(t("btn_identify_all"));
+  const ids = currentRobots.length ? currentRobots.map((r, i) => r.id || i + 1) : [1, 2, 3];
+  for (const id of ids) {
+    identifyRobot(id, true);
+    await new Promise((res) => setTimeout(res, 400));
+  }
+};
+
+$("btn-refresh-robots").onclick = () => {
+  const btn = $("btn-refresh-robots");
+  btn.disabled = true;
+  toast(t("refresh_started"));
+  fetch("/api/robots/refresh", { method: "POST" })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.robots) renderRobotPool(d.robots);
+      if (d.ok) toast(t("refresh_done", { n: (d.robots || []).length }));
+      else openLog();
+    })
+    .catch(() => {})
+    .finally(() => { btn.disabled = false; });
+};
+
+// ---------- Phone controller view ----------
+function handleSelfInfo(info) {
+  if (!info) return;
+  myRole = info.role;
+  $("btn-admin-login").hidden = info.role !== "controller";
+  $("btn-admin-logout").hidden = !info.remote_admin;
+  if (info.role !== "controller") {
+    document.body.classList.remove("role-controller");
+    return;
+  }
+  mySlot = info.slot || 1;
+  myColor = info.color || null;
+  activeBotIndex = mySlot;
+  document.body.classList.add("role-controller");
+  switchTabForce("drive");
+  renderAssignedBanner();
+  renderControllerWait();
+  renderCalib();
+}
+
+function switchTabForce(id) {
+  document.querySelectorAll(".tab-page").forEach((page) => page.classList.toggle("active", page.id === `tab-${id}`));
+}
+
+function renderAssignedBanner() {
+  const banner = $("mobile-assigned-banner");
+  if (!banner || myRole !== "controller") return;
+  const hex = (myColor && myColor.hex) || SLOT_COLORS[(mySlot - 1) % 3];
+  const colorName = myColor ? (currentLang === "hu" ? myColor.name : myColor.en).toLowerCase() : "";
+  banner.hidden = false;
+  banner.style.setProperty("--c", hex);
+  $("assigned-num").textContent = mySlot;
+  $("assigned-slot-title").textContent = t("assigned_title", { n: mySlot });
+  $("assigned-slot-desc").textContent = t("assigned_desc", { n: mySlot, color: colorName });
+}
+
+function renderControllerWait() {
+  const el = $("controller-wait");
+  if (el) el.hidden = !(myRole === "controller" && state.running !== "drive");
+}
+
+function handleControllerConnected(data) {
+  const isAutoMap = store.get("auto_map_on_connect") !== "false";
+  if (myRole === "controller" || !isAutoMap || (data && data.auto_map === false)) return;
+  const arena = $("panel-arena");
+  const target = arena && !arena.hidden ? arena : $("panel-phones");
+  if (!target) return;
+  target.classList.add("flash");
+  setTimeout(() => target.classList.remove("flash"), 1800);
+  target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (data && data.slot) toast(t("phone_n", { n: data.slot }) + " +");
+}
+
+// ---------- Modals ----------
+function showTimeoutModal(message) {
+  const m = $("modal-timeout");
+  if (!m) return;
+  const desc = m.querySelector("[data-i18n='timeout_modal_desc']");
+  if (desc) desc.textContent = message || t("timeout_modal_desc");
+  m.hidden = false;
+}
+
+function showMaxClientsModal() {
+  const m = $("modal-max-clients");
+  if (m) m.hidden = false;
 }
 
 function closeMaxClientsModal() {
@@ -2368,27 +2905,89 @@ function closeMaxClientsModal() {
 }
 
 function reconnectClient() {
-  const m = $("modal-timeout");
-  if (m) m.hidden = true;
+  $("modal-timeout").hidden = true;
+  $("modal-max-clients").hidden = true;
+  suppressReconnect = false;
+  wsRetry = 0;
   connect();
 }
 
-// Activity tracker (resets last_active and pings server)
-let lastActivityTime = Date.now();
+function openAdminModal() { $("modal-admin-settings").hidden = false; }
+function closeAdminModal() { $("modal-admin-settings").hidden = true; }
+$("btn-admin-settings").onclick = openAdminModal;
+$("modal-admin-settings").onclick = (e) => { if (e.target.id === "modal-admin-settings") closeAdminModal(); };
+
+// ---------- Admin login (phones) ----------
+function openAdminLogin() {
+  $("modal-admin-login").hidden = false;
+  $("admin-login-error").hidden = true;
+  $("admin-password").value = "";
+  setTimeout(() => $("admin-password").focus(), 50);
+}
+function closeAdminLogin() { $("modal-admin-login").hidden = true; }
+
+$("btn-admin-login").onclick = openAdminLogin;
+$("admin-login-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const err = $("admin-login-error");
+  err.hidden = true;
+  try {
+    const r = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: $("admin-password").value }),
+    });
+    if (r.ok) {
+      toast(t("admin_login_ok"));
+      setTimeout(() => location.reload(), 400);   // reconnect as admin (frees the joystick slot)
+      return;
+    }
+    err.textContent = t(r.status === 401 ? "admin_login_wrong" : "admin_login_failed");
+  } catch (e2) {
+    err.textContent = t("admin_login_failed");
+  }
+  err.hidden = false;
+  $("admin-password").select();
+};
+$("btn-admin-logout").onclick = async () => {
+  await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+  location.reload();
+};
+
+// An admin action refused by the server (phone not logged in, or password changed)
+const _fetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const r = await _fetch(...args);
+  if (r.status === 401 && String(args[0]).startsWith("/api/") && !String(args[0]).includes("/admin/")) {
+    toast(t("admin_required"), true);
+  }
+  return r;
+};
+
+function onToggleAutoMap(checked) {
+  store.set("auto_map_on_connect", checked ? "true" : "false");
+  fetch("/api/settings/auto-map", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: checked }),
+  }).catch(() => {});
+}
+
+// Activity tracker: keeps a phone from timing out while it is being used
+let lastActivityTime = 0;
 function markUserActive() {
   const now = Date.now();
   if (now - lastActivityTime > 15000) {
     lastActivityTime = now;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "ping" }));
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
   }
 }
-
 window.addEventListener("pointerdown", markUserActive);
 window.addEventListener("keydown", markUserActive);
-setInterval(markUserActive, 25000);
 
+// ==========================================
+// 12. Server Connection (WebSocket)
+// ==========================================
 function handleWsMessage(e) {
   const msg = JSON.parse(e.data);
   if (msg.type === "status") {
@@ -2401,201 +3000,66 @@ function handleWsMessage(e) {
     renderLetters();
   } else if (msg.type === "game") {
     gameState = msg.state;
+    if (gameState && gameState.kind === "party" && gameState.game) selectedGame = gameState.game;
+    else if (gameState && gameState.kind === "dance") selectedShow = "dance";
+    else if (gameState) selectedGame = "tictactoe";
+    renderProgramLists();
     renderGame();
     renderParty();
+    renderDance();
   } else if (msg.type === "telemetry") {
     updateTelemetry(msg.data);
   } else if (msg.type === "history") {
-    if ($("log")) $("log").innerHTML = "";
+    $("log").innerHTML = "";
     msg.lines.forEach((l) => addLine(l.line));
+    unreadLog = 0; unreadErr = false;
+    renderLogBadge();
   } else if (msg.type === "clients") {
     renderClients(msg.clients, msg.max || 3);
   } else if (msg.type === "robot_pool") {
     renderRobotPool(msg.robots);
+    renderDance();
   } else if (msg.type === "self_info") {
     handleSelfInfo(msg);
   } else if (msg.type === "controller_connected") {
     handleControllerConnected(msg);
+  } else if (msg.type === "dance") {
+    danceCfg = msg.config || { exclude: [] };
+    renderDance();
+  } else if (msg.type === "calibration") {
+    calibOffsets = msg.offsets || {};
+    renderCalib();
   } else if (msg.type === "settings") {
-    if (typeof msg.auto_map === "boolean") {
-      const toggle = $("toggle-auto-map");
-      if (toggle) toggle.checked = msg.auto_map;
-    }
+    if (typeof msg.auto_map === "boolean" && $("toggle-auto-map")) $("toggle-auto-map").checked = msg.auto_map;
   } else if (msg.type === "error" && msg.code === "MAX_CLIENTS") {
-    showMaxClientsModal(msg.message);
+    suppressReconnect = true;
+    showMaxClientsModal();
   } else if (msg.type === "timeout" || msg.type === "kicked") {
+    suppressReconnect = true;
     showTimeoutModal(msg.message);
   }
 }
 
-let currentRobots = [];
-function renderRobotPool(robots) {
-  currentRobots = robots || [];
-  const container = $("robot-pool-cards");
-  const pill = $("robots-pill-text");
-  if (pill) pill.textContent = `${currentRobots.length} / ${currentRobots.length} Robot`;
-  if (!container) return;
-  container.innerHTML = "";
-  currentRobots.forEach((r, idx) => {
-    const slotNum = r.id || idx + 1;
-    const card = document.createElement("div");
-    card.className = `robot-chip-card slot-${slotNum}`;
-    const isAssigned = !!r.slot || !!r.client_id;
-    const assignedLabel = isAssigned ? `📱 Irányítva (#${r.slot || slotNum})` : (r.status === "running" ? "Fut" : "Kész (Ready)");
-    const batteryIcon = r.battery > 50 ? "🔋" : (r.battery > 20 ? "🪫" : "⚠️");
-    card.innerHTML = `
-      <div class="r-top">
-        <span class="r-badge r${slotNum}">${slotNum}. Robot</span>
-        <span class="r-battery">${batteryIcon} ${r.battery}%</span>
-      </div>
-      <div class="r-name" title="${r.name}">${r.name}</div>
-      <div class="r-sub" style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
-        <span>${assignedLabel} &bull; ${r.voltage || 4.0}V</span>
-        <button class="sm xs-btn" onclick="identifyRobot(${slotNum})" title="Azonosítás">💡</button>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function identifyRobot(id) {
-  fetch(`/api/robots/${id}/identify`, { method: "POST" }).catch(() => {});
-  playTone(600, "sine", 0.08, 0.15);
-}
-
-function handleSelfInfo(info) {
-  if (!info) return;
-  if (info.role === "controller") {
-    const banner = $("mobile-assigned-banner");
-    const title = $("assigned-slot-title");
-    const desc = $("assigned-slot-desc");
-    const slot = info.slot || 1;
-    const colName = (info.color && info.color.name) || (slot === 1 ? "Piros" : (slot === 2 ? "Zöld" : "Kék"));
-    if (banner) {
-      banner.hidden = false;
-      banner.style.borderColor = (info.color && info.color.hex) || "var(--r1)";
-    }
-    if (title) {
-      title.textContent = currentLang === "hu" ?
-        `Te vagy a(z) ${slot}. Robot (${colName}) irányítója!` :
-        `You control Robot #${slot} (${(info.color && info.color.en) || "Red"})!`;
-    }
-    if (desc) {
-      desc.textContent = currentLang === "hu" ?
-        `A robot LED mátrixán világít a számod: ${slot}. Használd a lenti botkormányt!` :
-        `Robot #${slot} displays your number on its matrix. Steer using the joystick below!`;
-    }
-
-    document.querySelectorAll(".bot-chip").forEach(chip => {
-      chip.classList.toggle("active", chip.dataset.bot === String(slot));
-    });
-
-    const content = $("content-joystick");
-    if (content) content.hidden = false;
-  }
-}
-
-function handleControllerConnected(data) {
-  const isAutoMap = localStorage.getItem("auto_map_on_connect") !== "false";
-  if (isAutoMap && data && data.auto_map !== false) {
-    const arena = $("panel-arena");
-    if (arena) {
-      arena.style.boxShadow = "0 0 24px rgba(56, 139, 253, 0.85)";
-      setTimeout(() => { if (arena) arena.style.boxShadow = ""; }, 1800);
-      arena.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }
-}
-
-function toggleDropdown(name) {
-  const content = $(`content-${name}`);
-  const arrow = $(`arrow-${name}`);
-  if (!content) return;
-  const isHidden = content.hidden;
-  content.hidden = !isHidden;
-  if (arrow) arrow.classList.toggle("open", isHidden);
-}
-
-function toggleQrBox() {
-  const content = $("qr-expand-content");
-  const arrow = $("qr-toggle-icon");
-  if (!content) return;
-  const isHidden = content.style.display === "none";
-  content.style.display = isHidden ? "block" : "none";
-  if (arrow) arrow.classList.toggle("open", isHidden);
-}
-
-function onSelectShow(val) {
-  ["neu", "dance", "roam"].forEach(id => {
-    const card = $(`card-show-${id}`);
-    if (card) card.hidden = (id !== val);
-  });
-}
-
-function onSelectGame(val) {
-  const ttt = $("card-game-tictactoe");
-  const party = $("card-game-party");
-  if (val === "tictactoe") {
-    if (ttt) ttt.hidden = false;
-    if (party) party.hidden = true;
-  } else {
-    if (ttt) ttt.hidden = true;
-    if (party) {
-      party.hidden = false;
-      const titles = {
-        potato: "Forró Krumpli (Hot Potato)",
-        mole: "Vakondvadászat (Whack-a-Mole)",
-        simon: "Simon Mondja (Simon Says)",
-        rps: "Kő-Papír-Olló (Rock-Paper-Scissors)",
-      };
-      const titleEl = $("party-title");
-      if (titleEl) titleEl.textContent = titles[val] || val;
-      const startBtn = $("party-start");
-      if (startBtn) startBtn.onclick = () => startProgram(val);
-    }
-  }
-}
-
-function openAdminModal() {
-  const m = $("modal-admin-settings");
-  if (m) m.hidden = false;
-}
-
-function closeAdminModal() {
-  const m = $("modal-admin-settings");
-  if (m) m.hidden = true;
-}
-
-function onToggleAutoMap(checked) {
-  localStorage.setItem("auto_map_on_connect", checked ? "true" : "false");
-  fetch("/api/settings/auto-map", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled: checked }),
-  }).catch(() => {});
-}
-
 function connectCustomServer(hostUrl) {
-  let target = hostUrl.trim().replace(/^https?:\/\//, "").replace(/^wss?:\/\//, "").replace(/\/+$/, "").replace(/\/ws$/, "");
+  const target = hostUrl.trim().replace(/^(https?|wss?):\/\//, "").replace(/\/+$/, "").replace(/\/ws$/, "");
   if (!target) return;
   const wsUrl = `ws://${target}/ws`;
-  addLine(`Connecting to Arch server at ${wsUrl}...`);
-  if (ws) {
-    try { ws.close(); } catch (e) {}
-  }
+  addLine(`Connecting to ${wsUrl}...`);
+  if (ws) { try { ws.close(); } catch (e) {} }
   try {
     ws = new WebSocket(wsUrl);
     ws.onopen = () => {
       online = true;
-      connectedTarget = `Arch (${target})`;
+      clientMode = false;
+      connectedTarget = target;
       renderStatus();
       closeBluetoothModal();
       playVictory();
-      addLine(`=== Connected to Arch Linux server: ${target} ===`);
+      addLine(`=== Connected to server: ${target} ===`);
     };
     ws.onerror = () => {
-      alert(`Could not connect to ${wsUrl}. Make sure python server is running with --host 0.0.0.0 and your phone is on the same Wi-Fi!`);
-      addLine(`Connection to ${wsUrl} failed.`);
+      toast(`${wsUrl}: connection failed`, true);
+      addLine(`Connection to ${wsUrl} failed. Is the server running with --host 0.0.0.0 on the same Wi-Fi?`);
     };
     ws.onclose = () => {
       online = false;
@@ -2604,26 +3068,25 @@ function connectCustomServer(hostUrl) {
     };
     ws.onmessage = handleWsMessage;
   } catch (err) {
-    alert(`Invalid server address: ${err.message || err}`);
+    toast(`${err.message || err}`, true);
   }
 }
 
-if ($("btn-connect-server")) {
-  $("btn-connect-server").onclick = () => {
-    const input = $("input-server-url");
-    if (input && input.value.trim()) {
-      connectCustomServer(input.value.trim());
-    }
-  };
-}
+$("btn-connect-server").onclick = () => {
+  const input = $("input-server-url");
+  if (input && input.value.trim()) connectCustomServer(input.value.trim());
+};
+$("input-server-url").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("btn-connect-server").click();
+});
 
-// Connect to backend WebSocket or enable client mode
 let wsRetry = 0;
+let suppressReconnect = false;
+
 function connect() {
   const isStatic = location.protocol === "file:" ||
     location.hostname.endsWith("github.io") ||
-    location.hostname.endsWith("vercel.app") ||
-    (location.hostname === "localhost" && location.port === "");
+    location.hostname.endsWith("vercel.app");
 
   if (isStatic) {
     enableClientMode();
@@ -2634,24 +3097,26 @@ function connect() {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
     ws.onopen = () => {
       online = true;
-      connectedTarget = "Arch Server";
+      clientMode = false;
+      connectedTarget = null;
       wsRetry = 0;
       renderStatus();
-      addLine("=== Connected to Arch Linux server ===");
+      fetch("/api/letters").then((r) => (r.ok ? r.json() : null)).then((cfg) => {
+        if (cfg) { letterCfg = cfg; renderLetters(); }
+      }).catch(() => {});
     };
     ws.onclose = () => {
       online = false;
       connectedTarget = null;
-      wsRetry++;
       renderStatus();
-      if (wsRetry > 2) {
+      if (suppressReconnect) return;
+      wsRetry++;
+      if (wsRetry === 3) {
         enableClientMode();
-      } else {
-        setTimeout(connect, 1500);
+        addLine(t("offline_sim"));
       }
-    };
-    ws.onerror = () => {
-      if (wsRetry > 1) enableClientMode();
+      // keep retrying in the background so a restarted server is picked up again
+      setTimeout(connect, Math.min(10000, 1500 * wsRetry));
     };
     ws.onmessage = handleWsMessage;
   } catch (e) {
@@ -2659,27 +3124,22 @@ function connect() {
   }
 }
 
-// Initial setup
-if ($("btn-refresh-robots")) {
-  $("btn-refresh-robots").onclick = () => {
-    fetch("/api/robots/refresh", { method: "POST" })
-      .then(r => r.json())
-      .then(d => { if (d.robots) renderRobotPool(d.robots); })
-      .catch(() => {});
-  };
+// ==========================================
+// 13. Startup
+// ==========================================
+function refreshAllViews() {
+  updateSoundButton();
+  renderStatus();
+  renderClients(connectedClients);
+  renderRobotPool();
+  renderBotSelector();
+  renderGame();
+  renderParty();
+  renderLetters();
+  renderAssignedBanner();
+  if ($("arena-stats")) $("arena-stats").textContent = t("arena_stats", { n: arenaRobots.length });
 }
-if ($("btn-identify-all")) {
-  $("btn-identify-all").onclick = () => {
-    [1, 2, 3].forEach((id, i) => {
-      setTimeout(() => identifyRobot(id), i * 350);
-    });
-  };
-}
-if ($("btn-admin-settings")) {
-  $("btn-admin-settings").onclick = openAdminModal;
-}
-renderLetters();
-renderGame();
+
 initClientRobots(3);
 setLanguage(currentLang);
 initQRCode();

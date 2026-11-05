@@ -1,20 +1,49 @@
 {
-  "heading": 0,
+  "align": "compass",
+  "hand": true,
+  "heading": 359,
   "letters": [
     {
       "letter": "N",
       "rotation": 180,
-      "mirror": false
+      "mirror": true,
+      "turn": 0
     },
     {
       "letter": "E",
-      "rotation": 0,
-      "mirror": false
+      "rotation": 180,
+      "mirror": false,
+      "turn": 0
     },
     {
       "letter": "U",
-      "rotation": 90,
-      "mirror": false
+      "rotation": 180,
+      "mirror": false,
+      "turn": 0
+    },
+    {
+      "letter": "M",
+      "rotation": 180,
+      "mirror": false,
+      "turn": 0
+    },
+    {
+      "letter": "A",
+      "rotation": 180,
+      "mirror": false,
+      "turn": 75
+    },
+    {
+      "letter": "N",
+      "rotation": 180,
+      "mirror": true,
+      "turn": 0
+    },
+    {
+      "letter": "N",
+      "rotation": 180,
+      "mirror": true,
+      "turn": 0
     }
   ]
 }

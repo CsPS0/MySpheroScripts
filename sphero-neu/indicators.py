@@ -87,8 +87,59 @@ LETTERS = {
           "XX....XX",
           "XXXXXXXX",
           ".XXXXXX."],
+    "M": ["XX....XX",
+          "XXX..XXX",
+          "XXXXXXXX",
+          "XX.XX.XX",
+          "XX....XX",
+          "XX....XX",
+          "XX....XX",
+          "XX....XX"],
+    "A": ["..XXXX..",
+          ".XXXXXX.",
+          "XX....XX",
+          "XX....XX",
+          "XXXXXXXX",
+          "XXXXXXXX",
+          "XX....XX",
+          "XX....XX"],
 }
 LETTER_MIRROR = False   # True if N and E show mirrored
+
+# Small 3x5 digits, so numbers up to 99 fit on the 8x8 matrix (see number_bitmap).
+DIGITS = {
+    "0": ["XXX", "X.X", "X.X", "X.X", "XXX"],
+    "1": [".X.", "XX.", ".X.", ".X.", "XXX"],
+    "2": ["XXX", "..X", "XXX", "X..", "XXX"],
+    "3": ["XXX", "..X", ".XX", "..X", "XXX"],
+    "4": ["X.X", "X.X", "XXX", "..X", "..X"],
+    "5": ["XXX", "X..", "XXX", "..X", "XXX"],
+    "6": ["XXX", "X..", "XXX", "X.X", "XXX"],
+    "7": ["XXX", "..X", ".X.", ".X.", ".X."],
+    "8": ["XXX", "X.X", "XXX", "X.X", "XXX"],
+    "9": ["XXX", "X.X", "XXX", "..X", "XXX"],
+}
+
+# The BOLT matrix shows bitmaps mirrored, and upright for someone standing
+# behind the robot (blue tail light towards them) needs a half turn. Seen on the
+# real robots: N needed rotation 180 + mirror.
+UPRIGHT = {"rotation": 180, "mirror": True}
+
+
+def number_bitmap(number):
+    """8x8 bitmap (8 strings) of a 1 or 2 digit number, centered."""
+    digits = str(number)[-2:]
+    rows = ["........"] * 8
+    if len(digits) == 1:
+        glyphs, starts = [DIGITS[digits]], [2]
+    else:
+        glyphs, starts = [DIGITS[d] for d in digits], [0, 4]
+    rows = [list(r) for r in rows]
+    for glyph, x0 in zip(glyphs, starts):
+        for y, line in enumerate(glyph):
+            for x, ch in enumerate(line):
+                rows[y + 1][x0 + x] = ch
+    return ["".join(r) for r in rows]
 
 SIDE_ANGLE = {"top": 0, "right": 90, "bottom": 180, "left": 270}
 
@@ -201,14 +252,15 @@ def show_front(api, toy, color):
 
 class NorthArrow:
     """
-    Keeps the arrow pointing to ARROW_POINTS (west by default). get_heading() returns the robot's current
+    Keeps the arrow pointing to get_target() (default ARROW_POINTS, west). get_heading() returns the robot's current
     heading. Runs in its own thread, so driving commands are not held up, and
     redraws only after the heading stayed the same for SETTLE seconds.
     """
 
-    def __init__(self, api, toy, color, get_heading, stop, tick=0.05):
+    def __init__(self, api, toy, color, get_heading, stop, tick=0.05, get_target=None):
         self.api, self.toy, self.color = api, toy, color
         self.get_heading = get_heading
+        self.get_target = get_target or (lambda: ARROW_POINTS)   # floor direction to point at
         self.stop = stop
         self.tick = tick
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -222,7 +274,7 @@ class NorthArrow:
         self.api.set_front_led(FRONT_LED)
         shown, candidate, since = None, None, 0.0
         while not self.stop.is_set():
-            step = round(north_matrix_angle(self.get_heading()) / 45) % 8
+            step = round(north_matrix_angle(self.get_heading(), self.get_target()) / 45) % 8
             now = time.monotonic()
             if step != candidate:
                 candidate, since = step, now

@@ -8,15 +8,18 @@ subprocess, streams its output to the browser and forwards drive keys.
 import asyncio
 import collections
 import contextlib
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -34,16 +37,18 @@ ROBOT_NAMES = ["BOLT-1", "BOLT-2", "BOLT-3"]
 PROGRAMS = {
     "dance": {
         "title": "Dance Show",
-        "description": "Synchronized dance for all 3 robots: spins, circles, shuffle, "
-                       "solos, follow the leader, back home, finale. About 85 s.",
-        "args": ["bolt_dance.py"],
+        "description": "All free robots (up to 15) in a numbered line: rainbow wave with "
+                       "random turns, a rush with explosions on collisions, random "
+                       "characters and little dances, then back home. About 4 minutes.",
+        "args": ["big_dance.py"],
         "moves": True,
+        "game": True,          # stdin "start": Go after the setup, then next part
     },
     "drive": {
         "title": "Joystick Drive",
         "description": "Smooth remote control driving with the virtual joystick! Zero lag, "
                        "real-time heading & speed steering.",
-        "args": ["drive_keys.py", "--stdin", "--robots", "1"],
+        "args": ["drive_keys.py", "--stdin", "--robots", "1,2,3"],   # set per start()
         "moves": True,
         "joystick": True,
     },
@@ -56,9 +61,8 @@ PROGRAMS = {
     },
     "neu": {
         "title": "Neumann Formation",
-        "description": "After aiming, the robots turn in place and scroll the full NEUMANN "
-                       "school name across their 8x8 matrix displays with glowing LEDs. "
-                       "Holds until Stop.",
+        "description": "Robots 1-7 in a row show N, E, U, M, A, N, N, one letter each. "
+                       "After aiming they turn to the same heading. Holds until Stop.",
         "args": ["neu.py"],
         "moves": True,
         "letters": True,
@@ -106,15 +110,43 @@ PROGRAMS = {
 }
 
 DRIVE_KEYS = {"KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"}
-STOP_GRACE = 15     # seconds after Ctrl+C before the program is terminated
+STOP_GRACE = 30     # seconds after Ctrl+C before the program is terminated (9 robots need ~20 s to clean up)
 
 
+def _color(r, g, b, hu, en):
+    return {"r": r, "g": g, "b": b, "hex": f"#{r:02x}{g:02x}{b:02x}", "name": hu, "en": en}
+
+
+# Robot number -> display color. 1-3 are the phone controller slots (red, green, blue).
 ROBOT_COLORS = {
-    1: {"r": 255, "g": 59, "b": 59, "hex": "#ff3b3b", "name": "Piros", "en": "Red"},
-    2: {"r": 46, "g": 204, "b": 113, "hex": "#2ecc71", "name": "Zöld", "en": "Green"},
-    3: {"r": 52, "g": 152, "b": 219, "hex": "#3498db", "name": "Kék", "en": "Blue"},
-    4: {"r": 241, "g": 196, "b": 15, "hex": "#f1c40f", "name": "Sárga", "en": "Yellow"},
+    1: _color(255, 59, 59, "Piros", "Red"),
+    2: _color(46, 204, 113, "Zöld", "Green"),
+    3: _color(52, 152, 219, "Kék", "Blue"),
+    4: _color(241, 196, 15, "Sárga", "Yellow"),
+    5: _color(232, 67, 147, "Rózsaszín", "Pink"),
+    6: _color(0, 206, 201, "Türkiz", "Teal"),
+    7: _color(230, 126, 34, "Narancs", "Orange"),
+    8: _color(155, 89, 182, "Lila", "Purple"),
+    9: _color(255, 255, 255, "Fehér", "White"),
+    10: _color(163, 230, 53, "Lime", "Lime"),
+    11: _color(250, 128, 114, "Lazac", "Salmon"),
+    12: _color(99, 110, 250, "Indigó", "Indigo"),
+    13: _color(253, 203, 110, "Barack", "Peach"),
+    14: _color(85, 239, 196, "Menta", "Mint"),
+    15: _color(214, 48, 49, "Bordó", "Crimson"),
 }
+
+
+def robot_color(number):
+    if number in ROBOT_COLORS:
+        return ROBOT_COLORS[number]
+    keys = sorted(ROBOT_COLORS)
+    return ROBOT_COLORS[keys[(number - 1) % len(keys)]]
+
+
+def battery_percent(voltage):
+    """Rough LiPo charge estimate for a BOLT: 3.5 V empty, 4.2 V full."""
+    return max(0, min(100, round((voltage - 3.5) / 0.7 * 100)))
 
 
 class Runner:
@@ -134,10 +166,15 @@ class Runner:
         self.telemetry = None          # latest 2D arena telemetry
         self.robots = []               # list of robot dicts in pool
         self.auto_map_on_connect = True # auto switch/focus map on laptop screen when phone connects
-        self.simulation = os.environ.get("SPHERO_SIM", "1").lower() in ("1", "true", "yes")
+        # real robots by default; SPHERO_SIM=1 forces simulation, no Bluetooth adapter implies it
+        self.simulation = os.environ.get("SPHERO_SIM", "0").lower() in ("1", "true", "yes")
         if not sphero_ble.list_adapters():
             self.simulation = True
         self.lock = asyncio.Lock()
+        self.identify_lock = asyncio.Lock()
+        # robot number -> forward heading (degrees) for Drive, see drive_keys.Driven.
+        # Reset when Drive starts: the aim phase sets a new zero heading.
+        self.calibration = {}
 
     def get_robot_pool(self):
         return self.robots
@@ -145,98 +182,85 @@ class Runner:
     async def broadcast_robot_pool(self):
         await self.broadcast({"type": "robot_pool", "robots": self.get_robot_pool()})
 
+    def _robot_entry(self, number, raw_name, address, voltage=None):
+        return {
+            "id": number,
+            "name": f"BOLT-{number} ({raw_name})",
+            "raw_name": raw_name,
+            "address": address,
+            "battery": battery_percent(voltage) if voltage is not None else None,
+            "voltage": round(voltage, 2) if voltage is not None else None,
+            "status": "ready",
+            "slot": None,
+            "client_id": None,
+            "color": robot_color(number),
+        }
+
     async def init_robot_pool(self):
-        self.robots = []
-        if self.simulation:
-            try:
+        """Scans for BOLTs and numbers them 1..N, nearest first. Keeps the phone
+        assignments of robots that are still present."""
+        previous = {r["address"]: r for r in self.robots}
+        robots = []
+        cache_map = {}
+        try:
+            if self.simulation:
                 import sphero_sim
                 sim = sphero_sim.SimulatorManager.get()
-                specs = [
-                    ("BOLT-1", "SB-3FF5", 1),
-                    ("BOLT-2", "SB-034E", 2),
-                    ("BOLT-3", "SB-61A9", 3),
-                ]
-                cache_map = {}
-                for name, alias, slot_idx in specs:
-                    toy = sim.get_toy(alias)
-                    v = toy.get_battery_voltage() if hasattr(toy, "get_battery_voltage") else 4.02
-                    pct = toy.get_battery_percentage() if hasattr(toy, "get_battery_percentage") else 95
-                    col = ROBOT_COLORS.get(slot_idx, ROBOT_COLORS[1])
-                    cache_map[name] = toy.address
-                    cache_map[alias] = toy.address
-                    self.robots.append({
-                        "id": slot_idx,
-                        "name": f"{name} ({alias})",
-                        "raw_name": alias,
-                        "address": toy.address,
-                        "battery": pct,
-                        "voltage": round(v, 2),
-                        "status": "ready",
-                        "slot": None,
-                        "client_id": None,
-                        "color": col,
-                    })
-                sphero_ble.save_cached_bolts(cache_map)
-                await self.add_line(f"Robot pool kész: {len(self.robots)} robot készen áll [Szimuláció].")
-            except Exception as e:
-                await self.add_line(f"Szimulált robot pool hiba: {e}")
+                for number, spec in enumerate(sphero_sim.DEFAULT_ROBOT_SPECS, start=1):
+                    toy = sim.get_toy(spec[0])
+                    robots.append(self._robot_entry(number, toy.name, toy.address,
+                                                    toy.get_battery_voltage()))
+            else:
+                found = await asyncio.to_thread(sphero_ble.scan_bolts, 4.0)
+                for number, item in enumerate(found, start=1):
+                    robots.append(self._robot_entry(number, item[0], item[1]))
+        except Exception as e:
+            await self.add_line(f"Robot keresési hiba / scan error: {e}")
+
+        for r in robots:
+            cache_map[r["raw_name"]] = r["address"]
+            cache_map[f"BOLT-{r['id']}"] = r["address"]
+            old = previous.get(r["address"])
+            if old:
+                for key in ("slot", "client_id", "status"):
+                    r[key] = old[key]
+                if r["battery"] is None:
+                    r["battery"], r["voltage"] = old["battery"], old["voltage"]
+        self.robots = robots
+        sphero_ble.save_cached_bolts(cache_map)
+
+        mode = " [szimuláció]" if self.simulation else ""
+        if robots:
+            await self.add_line(f"Robotok: {len(robots)} BOLT megtalálva{mode}.")
         else:
-            try:
-                found = sphero_ble.scan_bolts(timeout=3.0)
-                cache_map = {}
-                if not found:
-                    found = [("SB-3FF5", "D4:22:CD:00:3F:F5", -60), ("SB-034E", "D4:22:CD:00:03:4E", -65), ("SB-61A9", "D4:22:CD:00:61:A9", -70)]
-                for idx, item in enumerate(found[:max(3, self.max_controllers)]):
-                    name, addr = item[0], item[1]
-                    slot_idx = idx + 1
-                    col = ROBOT_COLORS.get(slot_idx, ROBOT_COLORS[1])
-                    cache_map[name] = addr
-                    cache_map[f"BOLT-{slot_idx}"] = addr
-                    self.robots.append({
-                        "id": slot_idx,
-                        "name": f"BOLT-{slot_idx} ({name})",
-                        "raw_name": name,
-                        "address": addr,
-                        "battery": max(15, 96 - idx * 5),
-                        "voltage": round(4.14 - idx * 0.08, 2),
-                        "status": "ready",
-                        "slot": None,
-                        "client_id": None,
-                        "color": col,
-                    })
-                sphero_ble.save_cached_bolts(cache_map)
-                await self.add_line(f"Robot pool kész: {len(self.robots)} Sphero robot felderítve és gyorsítótárazva.")
-            except Exception as e:
-                await self.add_line(f"Bluetooth scan notice ({e}).")
+            await self.add_line("Nem található robot. Rázd fel a BOLT-okat, majd nyomd meg az Újrakeresés gombot.")
         await self.broadcast_robot_pool()
 
     async def assign_controller(self, ws, cid):
-        active = [m for m in self.client_meta.values() if m.get("role") == "controller"]
-        slot_num = len(active)
+        """Gives the phone the lowest free slot. Slot n drives robot n, which shows
+        the number n in the slot color on its matrix."""
+        used = {m.get("slot") for w, m in self.client_meta.items()
+                if w is not ws and m.get("role") == "controller"}
+        slot_num = next(n for n in range(1, self.max_controllers + 2) if n not in used)
         self.client_meta[ws]["slot"] = slot_num
-        col = ROBOT_COLORS.get(slot_num, ROBOT_COLORS[1])
+        col = robot_color(slot_num)
 
-        robot = None
-        if slot_num <= len(self.robots):
-            robot = self.robots[slot_num - 1]
+        robot = next((r for r in self.robots if r["id"] == slot_num), None)
+        if robot:
             robot["slot"] = slot_num
             robot["client_id"] = cid
             robot["status"] = "assigned"
-
             if self.simulation:
-                try:
+                with contextlib.suppress(Exception):
                     import sphero_sim
                     from spherov2.types import Color
-                    sim = sphero_sim.SimulatorManager.get()
+                    toy = sphero_sim.SimulatorManager.get().get_toy(robot["raw_name"])
                     c = Color(col["r"], col["g"], col["b"])
-                    toy = sim.get_toy(robot.get("raw_name", robot["name"]))
                     toy.set_matrix_character(str(slot_num), c)
                     toy.front_led = c
-                except Exception:
-                    pass
 
         await self.broadcast_robot_pool()
-        await self.add_line(f"📱 Telefon csatlakozott (Slot #{slot_num}) -> Robot #{slot_num} ({col['name']}) hozzárendelve.")
+        await self.add_line(f"Telefon {slot_num} csatlakozott -> {slot_num}. robot ({col['name']}).")
         return {
             "slot": slot_num,
             "robot_name": robot["name"] if robot else f"BOLT-{slot_num}",
@@ -252,36 +276,55 @@ class Runner:
                 r["client_id"] = None
                 r["status"] = "ready"
                 if self.simulation:
-                    try:
+                    with contextlib.suppress(Exception):
                         import sphero_sim
                         from spherov2.types import Color
-                        sim = sphero_sim.SimulatorManager.get()
-                        toy = sim.get_toy(r.get("raw_name", r["name"]))
+                        toy = sphero_sim.SimulatorManager.get().get_toy(r["raw_name"])
                         toy.clear_matrix()
                         toy.front_led = Color(0, 0, 0)
-                    except Exception:
-                        pass
                 break
         await self.broadcast_robot_pool()
         if released_slot:
-            await self.add_line(f"📱 Telefon levált (Slot #{released_slot}) -> Robot #{released_slot} mátrix visszaállítva.")
+            await self.add_line(f"Telefon {released_slot} levált, a(z) {released_slot}. robot újra szabad.")
 
     async def identify_robot(self, robot_id: int):
+        """Shows the robot's number in its color and turns the headlight white for a
+        few seconds. On real hardware it also reads the battery voltage."""
         r = next((x for x in self.robots if x["id"] == robot_id), None)
-        if r:
-            col = r["color"]
-            if self.simulation:
-                try:
-                    import sphero_sim
-                    from spherov2.types import Color
-                    sim = sphero_sim.SimulatorManager.get()
-                    toy = sim.get_toy(r.get("raw_name", r["name"]))
-                    c = Color(col["r"], col["g"], col["b"])
-                    toy.set_matrix_character(str(robot_id), c)
-                    toy.front_led = c
-                except Exception:
-                    pass
-            await self.add_line(f"💡 Robot #{robot_id} azonosítás: villogás {col['name']} fénnyel.")
+        if r is None:
+            return False
+        col = r["color"]
+        if self.simulation:
+            with contextlib.suppress(Exception):
+                import sphero_sim
+                from spherov2.types import Color
+                toy = sphero_sim.SimulatorManager.get().get_toy(r["raw_name"])
+                toy.set_matrix_character(str(robot_id), Color(col["r"], col["g"], col["b"]))
+                toy.front_led = Color(255, 255, 255)
+            await self.add_line(f"Azonosítás: {robot_id}. robot ({col['name']}).")
+            return True
+        if self.proc is not None:
+            await self.add_line(f"Azonosítás nem lehetséges, amíg program fut (robot {robot_id}). Előbb állítsd le.")
+            return False
+        async with self.identify_lock:
+            await self.add_line(f"Azonosítás: {robot_id}. robot ({r['raw_name']}) csatlakozás...")
+            try:
+                voltage = await asyncio.to_thread(identify_bolt, r["raw_name"], robot_id, col)
+            except Exception as e:
+                await self.add_line(f"Azonosítás sikertelen ({r['raw_name']}): {type(e).__name__}: {e}")
+                return False
+        if voltage:
+            r["voltage"] = round(voltage, 2)
+            r["battery"] = battery_percent(voltage)
+            await self.broadcast_robot_pool()
+        await self.add_line(f"Azonosítás kész: {robot_id}. robot"
+                            + (f", akku {r['battery']}% ({r['voltage']} V)." if voltage else "."))
+        return True
+
+    async def set_calibration(self, robot, offset):
+        self.calibration[robot] = int(round(offset)) % 360
+        await self.send_line(f"calib {robot} {self.calibration[robot]}\n", "joystick")
+        await self.broadcast({"type": "calibration", "offsets": self.calibration})
 
     def get_controller_list(self):
         now = time.time()
@@ -291,10 +334,11 @@ class Runner:
                 res.append({
                     "id": meta["id"],
                     "ip": meta["ip"],
+                    "slot": meta.get("slot"),
                     "connected_at": meta["connected_at"],
                     "idle": int(now - meta["last_active"]),
                 })
-        return res
+        return sorted(res, key=lambda c: c["slot"] or 99)
 
     async def broadcast_clients(self):
         msg = {
@@ -397,6 +441,10 @@ class Runner:
         async with self.lock:
             await self._stop()
             spec = PROGRAMS[program_id]
+            args = list(spec["args"])
+            if program_id == "drive":
+                count = max(1, min(3, self.max_controllers, len(self.robots) or 1))
+                args = ["drive_keys.py", "--stdin", "--robots", ",".join(str(n) for n in range(1, count + 1))]
             mode_tag = " [SIMULATION]" if self.simulation else ""
             await self.add_line(f"=== Start: {spec['title']}{mode_tag} ===")
             await self._release()
@@ -411,7 +459,7 @@ class Runner:
             start_new_session = (sys.platform != "win32")
 
             self.proc = await asyncio.create_subprocess_exec(
-                python_exec, "-u", *spec["args"],
+                python_exec, "-u", *args,
                 cwd=ROOT,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
@@ -423,6 +471,9 @@ class Runner:
             self.program = program_id
             self.started = time.time()
             asyncio.create_task(self._read(self.proc, program_id))
+            if program_id == "drive":
+                self.calibration = {}
+                await self.broadcast({"type": "calibration", "offsets": {}})
             await self.broadcast(self.status())
 
     async def stop(self):
@@ -461,7 +512,7 @@ class Runner:
                 await asyncio.wait_for(proc.wait(), wait)
                 break
             except asyncio.TimeoutError:
-                await self.add_line(f"=== No reaction, sending {getattr(sig, 'name', str(sig))} ===")
+                await self.add_line(f"=== No reaction to {getattr(sig, 'name', str(sig))} ===")
         await self._release()
         # _read() reports the exit
 
@@ -536,6 +587,29 @@ class Runner:
             pass
 
 
+def identify_bolt(raw_name, number, col, seconds=3.0):
+    """Connects to one real BOLT, shows `number` in color `col`, white headlight,
+    then clears. Returns the battery voltage or None. Blocking."""
+    from spherov2.sphero_edu import SpheroEduAPI
+    from spherov2.types import Color
+    import indicators
+    toy = sphero_ble.find_toy(raw_name, timeout=8.0)
+    voltage = None
+    with SpheroEduAPI(toy) as api:
+        with contextlib.suppress(Exception):
+            voltage = float(toy.get_battery_voltage())
+        with contextlib.suppress(Exception):
+            toy.sensor_control.disable_all()
+        # drawn directly: spherov2's set_matrix_character does nothing on a BOLT
+        indicators.show_bitmap(api, toy, indicators.number_bitmap(number),
+                               Color(col["r"], col["g"], col["b"]), **indicators.UPRIGHT)
+        api.set_front_led(Color(255, 255, 255))
+        time.sleep(seconds)
+        indicators.fill_all(toy, Color(0, 0, 0))
+        api.set_front_led(Color(0, 0, 0))
+    return voltage
+
+
 def get_local_ip():
     import socket
     try:
@@ -547,6 +621,48 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+
+# --- Admin access -----------------------------------------------------------
+# The laptop itself (localhost) is always admin. Other devices (phones on the
+# Wi-Fi) are joystick controllers unless they log in with ADMIN_PASSWORD. The
+# login sets a cookie with an HMAC of the password and a random server secret
+# (data/admin_secret), so it survives server restarts and stops working when the
+# password changes. Note: plain HTTP on the local network, not internet-grade.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin1234")
+ADMIN_COOKIE = "sphero_admin"
+LOCAL_IPS = ("127.0.0.1", "localhost", "::1")
+
+
+def _admin_secret():
+    path = ROOT / "data" / "admin_secret"
+    try:
+        return path.read_bytes()
+    except OSError:
+        secret = secrets.token_bytes(32)
+        with contextlib.suppress(OSError):
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(secret)
+            path.chmod(0o600)
+        return secret
+
+
+ADMIN_TOKEN = hmac.new(_admin_secret(), ADMIN_PASSWORD.encode(), hashlib.sha256).hexdigest()
+
+
+def is_admin(conn):
+    """conn: Request or WebSocket."""
+    host = conn.client.host if conn.client else ""
+    if host in LOCAL_IPS:
+        return True
+    return hmac.compare_digest(conn.cookies.get(ADMIN_COOKIE, ""), ADMIN_TOKEN)
+
+
+def require_admin(request: Request):
+    if not is_admin(request):
+        raise HTTPException(401, "admin login required")
+
+
+ADMIN = [Depends(require_admin)]
 
 runner = Runner()
 
@@ -590,25 +706,38 @@ async def get_letters():
     return letters.load()
 
 
-@app.post("/api/letters")
+@app.post("/api/letters", dependencies=ADMIN)
 async def change_letters(change: dict):
-    """change: {"target": 0|1|2|"all", "action": "cw"|"ccw"|"mirror"|"reset"}
-    or {"heading": <degrees>}."""
+    """change: {"target": 0..6|"all", "action": "cw"|"ccw"|"mirror"|"left"|"right"|"reset"},
+    {"heading": <degrees>}, {"align": "compass"|"aim"} or {"hand": true|false} (hand-turn lock).
+    cw/ccw turn the letter on the matrix by 90 degrees, left/right turn that robot by 15."""
     cfg = letters.load()
     if "heading" in change:
         cfg["heading"] = int(change["heading"]) % 360
+    elif "hand" in change:
+        cfg["hand"] = bool(change["hand"])
+    elif "align" in change:
+        if change["align"] not in ("compass", "aim"):
+            raise HTTPException(400, "unknown align")
+        cfg["align"] = change["align"]
     else:
         action, target = change.get("action"), change.get("target")
-        items = cfg["letters"] if target == "all" else [cfg["letters"][int(target)]]
-        for item in items:
+        indexes = range(len(cfg["letters"])) if target == "all" else [int(target)]
+        for index in indexes:
+            item = cfg["letters"][index]
             if action == "cw":
                 item["rotation"] = (item["rotation"] + 90) % 360
             elif action == "ccw":
                 item["rotation"] = (item["rotation"] - 90) % 360
             elif action == "mirror":
                 item["mirror"] = not item["mirror"]
-            elif action == "reset":
-                item["rotation"], item["mirror"] = 0, False
+            elif action == "left":
+                item["turn"] = item["turn"] - 15
+            elif action == "right":
+                item["turn"] = item["turn"] + 15
+            elif action == "reset":                 # back to the default (upright) values
+                default = letters.DEFAULT["letters"][index]
+                item.update(rotation=default["rotation"], mirror=default["mirror"], turn=default["turn"])
             else:
                 raise HTTPException(400, "unknown action")
     letters.save(cfg)
@@ -618,7 +747,7 @@ async def change_letters(change: dict):
     return cfg
 
 
-@app.post("/api/start/{program_id}")
+@app.post("/api/start/{program_id}", dependencies=ADMIN)
 async def start(program_id: str):
     if program_id not in PROGRAMS:
         raise HTTPException(404, "unknown program")
@@ -626,13 +755,13 @@ async def start(program_id: str):
     return runner.status()
 
 
-@app.post("/api/stop")
+@app.post("/api/stop", dependencies=ADMIN)
 async def stop():
     await runner.stop()
     return runner.status()
 
 
-@app.post("/api/game")
+@app.post("/api/game", dependencies=ADMIN)
 async def game(action: dict):
     """{"action": "play", "cell": 1-9}, or "new" (same layout), "recount", "start".
     Party games: {"action": "tap", "cell": n} (like shaking ball n) and "start"."""
@@ -645,12 +774,43 @@ async def game(action: dict):
     return {"ok": True}
 
 
+DANCE_CONFIG = ROOT / "data" / "dance.json"
+
+
+def load_dance():
+    try:
+        return {"exclude": sorted({int(n) for n in json.loads(DANCE_CONFIG.read_text()).get("exclude", [])})}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {"exclude": []}
+
+
+@app.get("/api/dance")
+async def get_dance():
+    return load_dance()
+
+
+@app.post("/api/dance", dependencies=ADMIN)
+async def change_dance(change: dict):
+    """{"exclude": [robot numbers]} or {"toggle": n}: robots left out of the dance
+    (used at the next start)."""
+    cfg = load_dance()
+    if "exclude" in change:
+        cfg["exclude"] = sorted({int(n) for n in change["exclude"]})
+    elif "toggle" in change:
+        n = int(change["toggle"])
+        cfg["exclude"] = sorted(set(cfg["exclude"]) ^ {n})
+    DANCE_CONFIG.parent.mkdir(exist_ok=True)
+    DANCE_CONFIG.write_text(json.dumps(cfg, indent=2))
+    await runner.broadcast({"type": "dance", "config": cfg})
+    return cfg
+
+
 @app.get("/api/tictactoe")
 async def get_tictactoe():
     return tictactoe.load_config()
 
 
-@app.post("/api/tictactoe")
+@app.post("/api/tictactoe", dependencies=ADMIN)
 async def change_tictactoe(change: dict):
     """{"robots": [9 names]} (used at the next start) or
     {"action": "cw"|"ccw"|"mirror"|"reset"} (applied live)."""
@@ -686,7 +846,7 @@ async def get_sim():
     return {"simulation": runner.simulation}
 
 
-@app.post("/api/sim")
+@app.post("/api/sim", dependencies=ADMIN)
 async def set_sim(req: dict):
     runner.simulation = bool(req.get("simulation", True))
     await runner.broadcast(runner.status())
@@ -707,7 +867,7 @@ async def sound_scream():
     raise HTTPException(404, "sound not found")
 
 
-@app.post("/api/shake")
+@app.post("/api/shake", dependencies=ADMIN)
 async def shake(action: dict):
     """Triggers shake on a robot or cell: {"cell": 1-9} or {"robot": "SB-3FF5"}."""
     cell = action.get("cell")
@@ -753,7 +913,7 @@ async def get_clients():
     }
 
 
-@app.post("/api/clients/kick/{client_id}")
+@app.post("/api/clients/kick/{client_id}", dependencies=ADMIN)
 async def kick_client_endpoint(client_id: str):
     kicked = await runner.kick_client(client_id)
     return {"ok": kicked}
@@ -764,29 +924,57 @@ async def get_robots_endpoint():
     return {"robots": runner.get_robot_pool()}
 
 
-@app.post("/api/robots/refresh")
+@app.post("/api/robots/refresh", dependencies=ADMIN)
 async def refresh_robots_endpoint():
+    if runner.proc is not None and not runner.simulation:
+        # robots used by the running program do not advertise and would vanish
+        await runner.add_line("Újrakeresés csak leállított program mellett lehetséges.")
+        return {"ok": False, "robots": runner.get_robot_pool()}
     await runner.init_robot_pool()
     return {"ok": True, "robots": runner.get_robot_pool()}
 
 
-@app.post("/api/robots/{robot_id}/identify")
+@app.post("/api/robots/{robot_id}/identify", dependencies=ADMIN)
 async def identify_robot_endpoint(robot_id: int):
-    await runner.identify_robot(robot_id)
-    return {"ok": True}
+    if not any(r["id"] == robot_id for r in runner.robots):
+        raise HTTPException(404, "unknown robot")
+    return {"ok": await runner.identify_robot(robot_id)}
 
 
-@app.post("/api/settings/auto-map")
+@app.post("/api/settings/auto-map", dependencies=ADMIN)
 async def set_auto_map_endpoint(data: dict):
     runner.auto_map_on_connect = bool(data.get("enabled", True))
     await runner.broadcast({"type": "settings", "auto_map": runner.auto_map_on_connect})
     return {"ok": True, "auto_map": runner.auto_map_on_connect}
 
 
+@app.get("/api/admin/status")
+async def admin_status(request: Request):
+    host = request.client.host if request.client else ""
+    return {"admin": is_admin(request), "local": host in LOCAL_IPS}
+
+
+@app.post("/api/admin/login")
+async def admin_login(data: dict, response: Response):
+    if not hmac.compare_digest(str(data.get("password", "")).encode(), ADMIN_PASSWORD.encode()):
+        await asyncio.sleep(1.0)           # slows down guessing
+        raise HTTPException(401, "wrong password")
+    response.set_cookie(ADMIN_COOKIE, ADMIN_TOKEN, max_age=30 * 24 * 3600,
+                        httponly=True, samesite="lax")
+    return {"ok": True}
+
+
+@app.post("/api/admin/logout")
+async def admin_logout(response: Response):
+    response.delete_cookie(ADMIN_COOKIE)
+    return {"ok": True}
+
+
 @app.websocket("/ws")
 async def websocket(ws: WebSocket):
     client_ip = ws.client.host if ws.client else "unknown"
-    role = "host" if client_ip in ("127.0.0.1", "localhost", "::1") else "controller"
+    # host = laptop or a phone logged in as admin (no joystick slot); others drive one robot
+    role = "host" if is_admin(ws) else "controller"
 
     current_controllers = [m for m in runner.client_meta.values() if m.get("role") == "controller"]
     if role == "controller" and len(current_controllers) >= runner.max_controllers:
@@ -829,8 +1017,11 @@ async def websocket(ws: WebSocket):
         "slot": slot_info.get("slot") if slot_info else None,
         "color": slot_info.get("color") if slot_info else None,
         "robot_name": slot_info.get("robot_name") if slot_info else None,
+        "remote_admin": role == "host" and client_ip not in LOCAL_IPS,
     })
     await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect})
+    await ws.send_json({"type": "calibration", "offsets": runner.calibration})
+    await ws.send_json({"type": "dance", "config": load_dance()})
     await runner.broadcast_clients()
 
     if role == "controller":
@@ -857,12 +1048,22 @@ async def websocket(ws: WebSocket):
             elif msg_type == "joystick":
                 h = int(msg.get("heading", 0)) % 360
                 s = max(0.0, min(255.0, float(msg.get("speed", 0))))
-                assigned_slot = runner.client_meta.get(ws, {}).get("slot", 1)
-                r = int(msg.get("robot") or assigned_slot)
-                await runner.send_line(f"drive {r} {h} {s:.1f}\n", "drive")
+                meta = runner.client_meta.get(ws, {})
+                if meta.get("role") == "controller":
+                    r = meta.get("slot") or 1      # phones only drive their own robot
+                else:
+                    r = int(msg.get("robot") or 1)
+                await runner.send_line(f"drive {r} {h} {s:.1f}\n", "joystick")
+            elif msg_type == "calibrate":
+                meta = runner.client_meta.get(ws, {})
+                if meta.get("role") == "controller":
+                    r = meta.get("slot") or 1      # phones only calibrate their own robot
+                else:
+                    r = int(msg.get("robot") or 1)
+                await runner.set_calibration(r, float(msg.get("offset", 0)))
             elif msg_type == "kick":
                 target_id = msg.get("client_id")
-                if target_id:
+                if target_id and role == "host":
                     await runner.kick_client(target_id)
     except WebSocketDisconnect:
         pass
