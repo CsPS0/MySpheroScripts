@@ -117,6 +117,10 @@ class Runner:
         self.last_exit = None          # (program, exit code)
         self.log = collections.deque(maxlen=1500)
         self.clients = set()
+        self.client_meta = {}          # ws -> {"id": cid, "ip": ip, "connected_at": t, "last_active": t, "role": role}
+        self.client_counter = 0
+        self.max_controllers = 3
+        self.idle_timeout = 300        # 5 minutes (300 seconds)
         self.keys = {}                 # websocket -> (set of key codes, turbo)
         self.game = None               # latest tic-tac-toe state
         self.telemetry = None          # latest 2D arena telemetry
@@ -124,6 +128,76 @@ class Runner:
         if not sphero_ble.list_adapters():
             self.simulation = True
         self.lock = asyncio.Lock()
+
+    def get_controller_list(self):
+        now = time.time()
+        res = []
+        for ws, meta in self.client_meta.items():
+            if meta.get("role") == "controller":
+                res.append({
+                    "id": meta["id"],
+                    "ip": meta["ip"],
+                    "connected_at": meta["connected_at"],
+                    "idle": int(now - meta["last_active"]),
+                })
+        return res
+
+    async def broadcast_clients(self):
+        msg = {
+            "type": "clients",
+            "clients": self.get_controller_list(),
+            "max": self.max_controllers,
+        }
+        await self.broadcast(msg)
+
+    async def kick_client(self, client_id: str):
+        target_ws = None
+        target_meta = None
+        for ws, meta in list(self.client_meta.items()):
+            if meta.get("id") == client_id:
+                target_ws = ws
+                target_meta = meta
+                break
+        if target_ws:
+            with contextlib.suppress(Exception):
+                await target_ws.send_json({
+                    "type": "kicked",
+                    "code": "KICKED",
+                    "message": "A bemutató vezetője bontotta a kapcsolatot. / Disconnected by host.",
+                })
+                await target_ws.close(code=1000)
+            self.clients.discard(target_ws)
+            self.client_meta.pop(target_ws, None)
+            self.keys.pop(target_ws, None)
+            await self.send_keys()
+            await self.broadcast_clients()
+            await self.add_line(f"Eszköz lekapcsolva a gazda által: {target_meta.get('ip', client_id)}")
+            return True
+        return False
+
+    async def watchdog(self):
+        while True:
+            await asyncio.sleep(5)
+            now = time.time()
+            to_kick = []
+            for ws, meta in list(self.client_meta.items()):
+                if meta.get("role") == "controller" and (now - meta.get("last_active", now)) > self.idle_timeout:
+                    to_kick.append((ws, meta))
+            for ws, meta in to_kick:
+                with contextlib.suppress(Exception):
+                    await ws.send_json({
+                        "type": "timeout",
+                        "code": "TIMEOUT",
+                        "message": "5 perc inaktivitás miatt a kapcsolat bontva, hogy más is játszhasson! / Disconnected due to 5 min inactivity.",
+                    })
+                    await ws.close(code=1000)
+                self.clients.discard(ws)
+                self.client_meta.pop(ws, None)
+                self.keys.pop(ws, None)
+                await self.add_line(f"Eszköz lekapcsolva inaktivitás miatt (5 perc): {meta.get('ip')}")
+            if to_kick:
+                await self.send_keys()
+                await self.broadcast_clients()
 
     def status(self):
         return {
@@ -306,12 +380,26 @@ class Runner:
             pass
 
 
+def get_local_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
 runner = Runner()
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app):
+    watchdog_task = asyncio.create_task(runner.watchdog())
     yield
+    watchdog_task.cancel()
     await runner.stop()        # container stop: let the program stop the robots
 
 
@@ -486,29 +574,95 @@ async def shake(action: dict):
     return {"ok": True}
 
 
+@app.get("/api/info")
+async def get_info():
+    ip = get_local_ip()
+    return {
+        "local_ip": ip,
+        "port": 8080,
+        "url": f"http://{ip}:8080",
+        "controllers_connected": len(runner.get_controller_list()),
+        "max_controllers": runner.max_controllers,
+    }
+
+
+@app.get("/api/clients")
+async def get_clients():
+    return {
+        "clients": runner.get_controller_list(),
+        "max": runner.max_controllers,
+    }
+
+
+@app.post("/api/clients/kick/{client_id}")
+async def kick_client_endpoint(client_id: str):
+    kicked = await runner.kick_client(client_id)
+    return {"ok": kicked}
+
+
 @app.websocket("/ws")
 async def websocket(ws: WebSocket):
+    client_ip = ws.client.host if ws.client else "unknown"
+    role = "host" if client_ip in ("127.0.0.1", "localhost", "::1") else "controller"
+
+    current_controllers = [m for m in runner.client_meta.values() if m.get("role") == "controller"]
+    if role == "controller" and len(current_controllers) >= runner.max_controllers:
+        await ws.accept()
+        await ws.send_json({
+            "type": "error",
+            "code": "MAX_CLIENTS",
+            "message": "Már 3 eszköz csatlakozott a robotokhoz. Kérlek várj egy kicsit! (Max 3 controllers active)",
+        })
+        await asyncio.sleep(0.5)
+        await ws.close(code=1008)
+        return
+
     await ws.accept()
+    runner.client_counter += 1
+    cid = f"dev_{runner.client_counter}"
     runner.clients.add(ws)
+    runner.client_meta[ws] = {
+        "id": cid,
+        "ip": client_ip,
+        "role": role,
+        "connected_at": time.time(),
+        "last_active": time.time(),
+    }
+
     await ws.send_json(runner.status())
     await ws.send_json({"type": "history", "lines": list(runner.log)})
     await ws.send_json({"type": "game", "state": runner.game})
     await ws.send_json({"type": "telemetry", "data": runner.get_current_telemetry()})
+    await ws.send_json({"type": "self_info", "client_id": cid, "role": role})
+    await runner.broadcast_clients()
+
     try:
         while True:
             msg = await ws.receive_json()
-            if msg.get("type") == "keys":
+            if ws in runner.client_meta:
+                runner.client_meta[ws]["last_active"] = time.time()
+
+            msg_type = msg.get("type")
+            if msg_type == "ping":
+                await ws.send_json({"type": "pong"})
+            elif msg_type == "keys":
                 keys = {k for k in msg.get("keys", []) if k in DRIVE_KEYS}
                 runner.keys[ws] = (keys, bool(msg.get("turbo")))
                 await runner.send_keys()
-            elif msg.get("type") == "joystick":
+            elif msg_type == "joystick":
                 h = int(msg.get("heading", 0)) % 360
                 s = max(0.0, min(255.0, float(msg.get("speed", 0))))
                 r = int(msg.get("robot", 1))
                 await runner.send_line(f"drive {r} {h} {s:.1f}\n", "drive")
+            elif msg_type == "kick":
+                target_id = msg.get("client_id")
+                if target_id:
+                    await runner.kick_client(target_id)
     except WebSocketDisconnect:
         pass
     finally:
         runner.clients.discard(ws)
+        runner.client_meta.pop(ws, None)
         runner.keys.pop(ws, None)
         await runner.send_keys()
+        await runner.broadcast_clients()

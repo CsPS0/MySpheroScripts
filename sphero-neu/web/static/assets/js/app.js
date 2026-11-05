@@ -110,15 +110,309 @@ function playBoom() {
 
 const $ = (id) => document.getElementById(id);
 
-if ($("sound-toggle")) {
-  $("sound-toggle").onclick = () => {
-    soundOn = !soundOn;
-    const icon = soundOn
-      ? '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
-      : '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
-    $("sound-toggle").innerHTML = `${icon} <span>Sound ${soundOn ? "ON" : "OFF"}</span>`;
-  };
+// ==========================================
+// Bilingual Translation (HU default, EN backup)
+// ==========================================
+let currentLang = localStorage.getItem("sphero_lang") || "hu";
+
+const I18N = {
+  hu: {
+    lang: "HU",
+    status_offline: "Offline",
+    status_connected: "Csatlakozva",
+    status_running: "Fut",
+    sound_on: "Hang BE",
+    sound_off: "Hang KI",
+    stop: "Leállítás",
+    connect_btn: "Csatlakozás",
+
+    nav_intro: "Bemutató",
+    nav_arena: "Aréna",
+    nav_shows: "Műsorok",
+    nav_games: "Játékok",
+    nav_tictactoe: "Amőba",
+    nav_drive: "Botkormány",
+    nav_console: "Napló",
+
+    intro_title: "Neumann Sphero Robotika Bemutató",
+    intro_subtitle: "Irányítsd a robotokat közvetlenül a saját telefonodról!",
+    qr_step_1: "Nyisd meg a kamerát a telefonodon.",
+    qr_step_2: "Olvasd be a fenti QR-kódot a csatlakozáshoz.",
+    qr_step_3: "Válaszd ki a virtuális botkormányt vagy indíts egy játékot!",
+    host_panel_title: "Csatlakoztatott telefonok",
+    no_devices_msg: "Nincs aktív telefon csatlakoztatva. Olvasd be a QR-kódot a kezdéshez!",
+    host_rules_note: "Egyszerre legfeljebb 3 telefon kapcsolódhat. Ha egy eszköz 5 percig tétlen, a rendszer automatikusan bontja a kapcsolatot, hogy más is kipróbálhassa.",
+    quick_launch_title: "Gyors Indítás a Monitorról",
+
+    card_dance_title: "Szinkrontánc",
+    badge_show: "Műsor",
+    card_dance_desc: "Mindhárom robot egyszerre forog, szlalomozik, alakzatot vált, a végén pedig színes szivárványfénnyel zár.",
+    btn_start_dance: "Tánc Indítása",
+
+    card_drive_title: "Virtuális Botkormány",
+    badge_drive: "Irányítás",
+    card_drive_desc: "Irányítsd a Sphero robotot az analóg karral! Érintőképernyőn és billentyűzeten (W A S D) is azonnal reagál.",
+    btn_open_joystick: "Botkormány Megnyitása",
+
+    card_potato_title: "Forró Krumpli",
+    badge_game: "Játék",
+    card_potato_desc: "Add tovább a robotot körbe a többieknek, mielőtt lejár a kanóc! Egyre gyorsabban pittyeg, a végén robbanással és hanggal!",
+    btn_play_potato: "Játék Indítása",
+
+    card_ttt_title: "9 Robotos Amőba",
+    card_ttt_desc: "9 Sphero a padlón 3x3-as elrendezésben. Koppints a mezőre a telefonon, és a robot azonnal felveszi a színedet!",
+    btn_play_ttt: "Amőba Indítása",
+
+    arena_title: "Élő Robot Aréna",
+    arena_subtitle: "2D padlónézet. Kattints vagy koppints a robotra a megrázás szimulálásához!",
+    arena_trails: "Nyomvonal",
+    arena_recenter: "Középre",
+    arena_shake: "Robotok Rázása",
+    arena_hint: "Méretarány: 1 négyzet = 20 cm. Valós fizika és 8x8-as LED mátrix kijelző.",
+
+    shows_title: "Koreográfia és Bemutatók",
+    shows_subtitle: "Előre beprogramozott látványos robotmozgások és iskolai felirat.",
+    card_neu_title: "NEU Iskolai Felirat",
+    badge_matrix: "Mátrix",
+    card_neu_desc: "A robotok felállnak a megfelelő pozícióba, és kirakják az N, E, U betűket a kijelzőjükön.",
+    btn_show_neu: "NEU Megjelenítése",
+    card_roam_title: "Önálló Bolyongás",
+    badge_wander: "Mozgás",
+    card_roam_desc: "Mindhárom robot szabadon pásztázza a padlót a saját 25 cm-es zónájában az akadályokat kikerülve.",
+    btn_start_roam: "Bolyongás Indítása",
+    neu_editor_title: "NEU Betűk Forgatása",
+    neu_editor_desc: "A beállítások azonnal megjelennek a robotokon. 90°-os forgatás vagy tükrözés.",
+    target_heading: "Célirány:",
+
+    games_title: "Interaktív Csapatjátékok",
+    games_subtitle: "Gyors, pörgős játékok iskolásoknak és látogatóknak.",
+    card_mole_title: "Vakondvadászat",
+    badge_reflex: "Reflex",
+    card_mole_desc: "Egy robot felvillan neon zölden: érintsd meg minél gyorsabban, mielőtt eltűnik! 60 másodperces reflexjáték pontszámlálóval.",
+    btn_play_mole: "Vakondvadászat Indítása",
+    card_simon_title: "Simon Mondja",
+    badge_memory: "Memória",
+    card_simon_desc: "A robotok hangokkal és fényekkel mutatják a mintát. Ismételd meg a sorrendet! Minden szint egy lépéssel hosszabb.",
+    btn_play_simon: "Simon Mondja Indítása",
+    card_rps_title: "Kő-Papír-Olló",
+    badge_duel: "Párbaj",
+    card_rps_desc: "Két robot (Piros vs Kék). 3-2-1 visszaszámlálás, majd mindkét robot mutatja a választását. 2 nyert menetig tart.",
+    btn_play_rps: "Kő-Papír-Olló Indítása",
+
+    ttt_title: "9 Robotos Padló Amőba",
+    ttt_subtitle: "9 robot a padlón 3x3-as rácsban. Koppints a mezőkre a lépéshez!",
+    ttt_same_layout: "Újra (Ugyanitt)",
+    ttt_renumber: "Újraszámozás",
+    ttt_start: "Játék Kezdése",
+    ttt_footer: "Három egymás mellett világító zöld fénnyel és győzelmi dallammal jelzi a nyertest!",
+
+    drive_title: "Kézi Botkormány (Virtuális Joystick)",
+    drive_subtitle: "Finom analóg irányítás. Érintsd meg és húzd a kart bármelyik irányba!",
+    hud_heading: "Irány",
+    hud_throttle: "Sebesség",
+    hud_mode: "Üzemmód",
+    hud_mode_val: "Sima RC",
+    steer_robot: "Irányított robot:",
+    drive_controls_hint: "Koppints és húzd a botkormányt az ujjaddal a telefonodon, vagy az egérrel. Számítógépen a W A S D és a nyilak is használhatók!",
+
+    console_title: "Eseménynapló és Telemetria",
+    console_subtitle: "Rendszerüzenetek, játékmenet és kapcsolatok naplózása.",
+    btn_clear: "Törlés",
+
+    disconnect_btn: "Lekapcsolás",
+    active_now: "épp most aktív",
+    idle_secs: "mp-e tétlen",
+    idle_mins: "perce tétlen",
+
+    timeout_modal_title: "Inaktivitás miatt bontva",
+    timeout_modal_desc: "5 perc tétlenség után a kapcsolat bontásra került, hogy a többi várakozó diák is kipróbálhassa az irányítást.",
+    btn_reconnect: "Újracsatlakozás",
+
+    max_modal_title: "Tele a pálya (3/3)",
+    max_modal_desc: "Jelenleg mind a 3 irányítói hely foglalt. Kérlek várj pár percet, amíg egy hely felszabadul!",
+    btn_understood: "Értem",
+
+    ble_modal_title: "Bluetooth Beállítás & Előkészület",
+    ble_step_1_title: "Kapcsold be a Bluetooth-t",
+    ble_step_1_desc: "Húzd le az értesítési sávot a telefonodon, és ellenőrizd, hogy a Bluetooth be van-e kapcsolva.",
+    ble_step_2_title: "Ébreszd fel a Sphero BOLT-ot",
+    ble_step_2_desc: "Rázd meg határozottan a robotot, amíg a LED kijelzőjén fel nem villan a neve (pl. SB-3FF5).",
+    ble_step_3_title: "Párosítás és Csatlakozás",
+    ble_step_3_desc: "Csatlakozz közvetlenül a böngészőből, vagy a tantermi Arch Linux géphez.",
+    btn_pair_ble: "Sphero Keresése és Párosítása",
+    or_connect_server: "— VAGY CSATLAKOZÁS ARCH LINUX GÉPHEZ —",
+    btn_connect_server: "Szerver Csatlakozás"
+  },
+  en: {
+    lang: "EN",
+    status_offline: "Offline",
+    status_connected: "Connected",
+    status_running: "Running",
+    sound_on: "Sound ON",
+    sound_off: "Sound OFF",
+    stop: "Stop",
+    connect_btn: "Connect",
+
+    nav_intro: "Introduction",
+    nav_arena: "Arena",
+    nav_shows: "Shows",
+    nav_games: "Party Games",
+    nav_tictactoe: "Tic-Tac-Toe",
+    nav_drive: "Manual Drive",
+    nav_console: "Activity Log",
+
+    intro_title: "Sphero Robotics Presentation",
+    intro_subtitle: "Control the robots directly from your own phone!",
+    qr_step_1: "Open the camera app on your smartphone.",
+    qr_step_2: "Scan the QR code above to connect.",
+    qr_step_3: "Pick the virtual joystick or start an interactive game!",
+    host_panel_title: "Connected Controller Phones",
+    no_devices_msg: "No active phones connected. Scan the QR code to start!",
+    host_rules_note: "Up to 3 phones can connect at once. If a phone is inactive for 5 minutes, the system frees up the slot for others.",
+    quick_launch_title: "Quick Launch from Monitor",
+
+    card_dance_title: "Synchronized Dance",
+    badge_show: "Show",
+    card_dance_desc: "All 3 robots execute synchronized 360° spins, side-to-side shuffles, and a colorful rainbow finale.",
+    btn_start_dance: "Start Dance",
+
+    card_drive_title: "Joystick Remote Drive",
+    badge_drive: "Drive",
+    card_drive_desc: "Drive your Sphero robot with the responsive analog virtual joystick. Supports touch and W A S D.",
+    btn_open_joystick: "Open Joystick",
+
+    card_potato_title: "Hot Potato",
+    badge_game: "Game",
+    card_potato_desc: "Pass the robot around before the fuse expires! Accelerates ticking, ends with an explosion sound!",
+    btn_play_potato: "Play Potato",
+
+    card_ttt_title: "9-Ball Tic-Tac-Toe",
+    card_ttt_desc: "9 Sphero robots arranged in a 3x3 grid on the floor. Tap squares on your phone to take turns!",
+    btn_play_ttt: "Start Tic-Tac-Toe",
+
+    arena_title: "Live Robot Arena",
+    arena_subtitle: "Interactive 2D floor view. Click or tap any robot on the floor to simulate shaking it!",
+    arena_trails: "Trails",
+    arena_recenter: "Recenter",
+    arena_shake: "Shake Bots",
+    arena_hint: "Floor scale: 1 grid square = 20 cm. Smooth physics and live 8x8 LED matrix display.",
+
+    shows_title: "Choreography & Shows",
+    shows_subtitle: "Pre-programmed routines and school formation displays.",
+    card_neu_title: "NEU School Formation",
+    badge_matrix: "Matrix",
+    card_neu_desc: "The robots roll into formation, align to heading, and show glowing letters N, E, U on their matrices.",
+    btn_show_neu: "Show NEU",
+    card_roam_title: "Autonomous Roam",
+    badge_wander: "Wander",
+    card_roam_desc: "All 3 robots wander smoothly within their 25 cm zones, avoiding collisions, then return home.",
+    btn_start_roam: "Start Roam",
+    neu_editor_title: "NEU Matrix Letter Orientation",
+    neu_editor_desc: "Changes update live on the robots. Adjust rotation (90° clockwise/counter-clockwise) or mirror flip.",
+    target_heading: "Target Heading:",
+
+    games_title: "Interactive Party Games",
+    games_subtitle: "High-energy games designed for student engagement and classroom participation.",
+    card_mole_title: "Whack-a-Mole",
+    badge_reflex: "Reflexes",
+    card_mole_desc: "A random ball lights up neon green with a pop sound: tap it before it hides! 60s round with score.",
+    btn_play_mole: "Play Whack-a-Mole",
+    card_simon_title: "Simon Says",
+    badge_memory: "Memory",
+    card_simon_desc: "Balls light up with distinct musical notes (C, E, G, High C). Repeat the sequence back by tapping!",
+    btn_play_simon: "Play Simon Says",
+    card_rps_title: "Rock-Paper-Scissors",
+    badge_duel: "2-Player",
+    card_rps_desc: "2 robots (Player 1 Red vs Player 2 Blue). Countdown 3-2-1, then reveal gestures. Best of 3 match!",
+    btn_play_rps: "Play RPS",
+
+    ttt_title: "9-Ball Floor Tic-Tac-Toe",
+    ttt_subtitle: "9 robots arranged in a 3x3 grid on the floor. Tap squares to take turns.",
+    ttt_same_layout: "Same Layout",
+    ttt_renumber: "Renumber",
+    ttt_start: "Start Game",
+    ttt_footer: "Three in a row turns the winning robots bright green with victory fanfare!",
+
+    drive_title: "Manual RC Drive (Virtual Joystick)",
+    drive_subtitle: "Touch and drag the thumbstick in any direction. Zero lag, fluid return-to-center physics.",
+    hud_heading: "Heading",
+    hud_throttle: "Throttle",
+    hud_mode: "Mode",
+    hud_mode_val: "Smooth RC",
+    steer_robot: "Steer Robot:",
+    drive_controls_hint: "Drag the thumbstick with your finger on a mobile phone, or with your mouse. Keyboard: W A S D or arrows!",
+
+    console_title: "Activity Console & Telemetry",
+    console_subtitle: "Live system telemetry, connection events, and game diagnostics.",
+    btn_clear: "Clear",
+
+    disconnect_btn: "Disconnect",
+    active_now: "active now",
+    idle_secs: "s idle",
+    idle_mins: "m idle",
+
+    timeout_modal_title: "Disconnected Due to Inactivity",
+    timeout_modal_desc: "After 5 minutes of no activity, your connection was closed so other students can have a turn.",
+    btn_reconnect: "Reconnect",
+
+    max_modal_title: "All Slots Full (3/3)",
+    max_modal_desc: "All 3 controller slots are currently in use. Please wait a few minutes for a slot to open up!",
+    btn_understood: "Understood",
+
+    ble_modal_title: "Bluetooth Setup & Preparation",
+    ble_step_1_title: "Turn On Bluetooth on your Phone",
+    ble_step_1_desc: "Swipe down for Quick Settings (or open Settings) and make sure Bluetooth is toggled ON.",
+    ble_step_2_title: "Wake Your Sphero BOLT",
+    ble_step_2_desc: "Give your Sphero BOLT a quick shake. Its 8x8 LED matrix will light up with its ID.",
+    ble_step_3_title: "Pair & Connect",
+    ble_step_3_desc: "Connect directly from your smartphone browser, or connect to your Arch Linux laptop server.",
+    btn_pair_ble: "Scan & Pair Sphero via Bluetooth",
+    or_connect_server: "— OR CONNECT TO ARCH LINUX LAPTOP —",
+    btn_connect_server: "Connect Server"
+  }
+};
+
+function t(key) {
+  if (I18N[currentLang] && I18N[currentLang][key]) return I18N[currentLang][key];
+  if (I18N.en && I18N.en[key]) return I18N.en[key];
+  return key;
 }
+
+function updateSoundButton() {
+  const btn = $("sound-toggle");
+  if (!btn) return;
+  const icon = soundOn
+    ? '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'
+    : '<svg class="icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+  btn.innerHTML = `${icon} <span id="sound-label">${soundOn ? t("sound_on") : t("sound_off")}</span>`;
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("sphero_lang", lang);
+  document.documentElement.lang = lang;
+  if ($("lang-label")) $("lang-label").textContent = lang.toUpperCase();
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (key) el.textContent = t(key);
+  });
+
+  updateSoundButton();
+  renderStatus();
+  if (connectedClients.length > 0) renderClients(connectedClients);
+}
+
+function toggleLanguage() {
+  setLanguage(currentLang === "hu" ? "en" : "hu");
+}
+
+if ($("lang-toggle")) $("lang-toggle").onclick = toggleLanguage;
+if ($("sound-toggle")) $("sound-toggle").onclick = () => {
+  soundOn = !soundOn;
+  updateSoundButton();
+};
+
 
 // ==========================================
 // 2. 8x8 LED Matrix Font Engine
@@ -173,7 +467,7 @@ function makeSolidMatrix(colorHex) {
 // ==========================================
 // 3. Tab Navigation / View Switching
 // ==========================================
-let activeTab = "arena";
+let activeTab = "intro";
 function switchTab(tabId) {
   activeTab = tabId;
   document.querySelectorAll(".nav-tab").forEach(tab => {
@@ -236,13 +530,14 @@ function renderStatus() {
   const isConn = online && (connectedTarget || (ws && ws.readyState === WebSocket.OPEN));
   pill.className = "pill" + (!isConn ? " offline" : state.running ? " running" : " online");
   if (!isConn) {
-    text.textContent = "Offline";
+    text.textContent = t("status_offline");
   } else if (state.running) {
     const p = programs.find((x) => x.id === state.running) || DEFAULT_PROGRAMS.find((x) => x.id === state.running);
     const secs = Math.round(Date.now() / 1000 - state.started);
-    text.textContent = `Running: ${p ? p.title : state.running} (${secs}s)`;
+    const title = p ? p.title : state.running;
+    text.textContent = `${t("status_running")}: ${title} (${secs} ${currentLang === "hu" ? "mp" : "s"})`;
   } else {
-    text.textContent = connectedTarget ? `Connected: ${connectedTarget}` : "Connected";
+    text.textContent = connectedTarget ? `${t("status_connected")}: ${connectedTarget}` : t("status_connected");
   }
   if ($("global-stop")) $("global-stop").disabled = !state.running;
 }
@@ -1948,6 +2243,173 @@ if ($("modal-bluetooth")) {
 }
 if ($("btn-scan-ble")) $("btn-scan-ble").onclick = connectWebBluetooth;
 
+// ==========================================
+// 11. QR Code & Device Management (Arch Host)
+// ==========================================
+let connectedClients = [];
+
+async function initQRCode() {
+  const box = $("qrcode-box");
+  const urlLabel = $("qr-url-text");
+  if (!box) return;
+
+  let targetUrl = window.location.href;
+  try {
+    const res = await fetch("/api/info");
+    if (res.ok) {
+      const info = await res.json();
+      if (info.url) targetUrl = info.url;
+    }
+  } catch (e) {}
+
+  if (urlLabel) urlLabel.textContent = targetUrl;
+
+  box.innerHTML = "";
+  if (typeof QRCode !== "undefined") {
+    new QRCode(box, {
+      text: targetUrl,
+      width: 175,
+      height: 175,
+      colorDark: "#0b0e14",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
+}
+
+function renderClients(clients, maxSlots = 3) {
+  connectedClients = clients || [];
+  const badge = $("slots-badge");
+  const list = $("connected-devices-list");
+  if (badge) {
+    const unit = currentLang === "hu" ? "telefon" : "phones";
+    badge.textContent = `${connectedClients.length} / ${maxSlots} ${unit}`;
+  }
+  if (!list) return;
+
+  if (connectedClients.length === 0) {
+    list.innerHTML = `<div style="color:var(--muted); font-size:0.85rem; text-align:center; padding:8px 0;">${t("no_devices_msg")}</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  connectedClients.forEach((c, idx) => {
+    const row = document.createElement("div");
+    row.className = "device-row";
+
+    let idleStr = "";
+    if (c.idle < 10) {
+      idleStr = t("active_now");
+    } else if (c.idle < 60) {
+      idleStr = `${c.idle} ${t("idle_secs")}`;
+    } else {
+      idleStr = `${Math.floor(c.idle / 60)} ${t("idle_mins")}`;
+    }
+
+    const nameLabel = currentLang === "hu" ? `${idx + 1}. Telefon` : `Phone ${idx + 1}`;
+    row.innerHTML = `
+      <div class="device-info">
+        <span class="dot"></span>
+        <div>
+          <b>${nameLabel}</b> <span style="font-family:var(--font-mono); color:var(--muted); font-size:0.8rem;">(${c.ip})</span>
+          <div class="device-time">${idleStr}</div>
+        </div>
+      </div>
+      <button class="stop sm" data-kick="${c.id}" style="padding:3px 8px; font-size:0.75rem;">${t("disconnect_btn")}</button>
+    `;
+    const btn = row.querySelector("button[data-kick]");
+    if (btn) {
+      btn.onclick = () => kickClient(c.id);
+    }
+    list.appendChild(row);
+  });
+}
+
+function kickClient(clientId) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "kick", client_id: clientId }));
+  } else {
+    fetch(`/api/clients/kick/${clientId}`, { method: "POST" }).catch(() => {});
+  }
+}
+
+function showTimeoutModal(message) {
+  const m = $("modal-timeout");
+  if (m) {
+    if (message) {
+      const desc = m.querySelector("[data-i18n='timeout_modal_desc']");
+      if (desc) desc.textContent = message;
+    }
+    m.hidden = false;
+  }
+}
+
+function showMaxClientsModal(message) {
+  const m = $("modal-max-clients");
+  if (m) {
+    if (message) {
+      const desc = m.querySelector("[data-i18n='max_modal_desc']");
+      if (desc) desc.textContent = message;
+    }
+    m.hidden = false;
+  }
+}
+
+function closeMaxClientsModal() {
+  const m = $("modal-max-clients");
+  if (m) m.hidden = true;
+}
+
+function reconnectClient() {
+  const m = $("modal-timeout");
+  if (m) m.hidden = true;
+  connect();
+}
+
+// Activity tracker (resets last_active and pings server)
+let lastActivityTime = Date.now();
+function markUserActive() {
+  const now = Date.now();
+  if (now - lastActivityTime > 15000) {
+    lastActivityTime = now;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ping" }));
+    }
+  }
+}
+
+window.addEventListener("pointerdown", markUserActive);
+window.addEventListener("keydown", markUserActive);
+setInterval(markUserActive, 25000);
+
+function handleWsMessage(e) {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "status") {
+    state = msg;
+    renderStatus();
+  } else if (msg.type === "log") {
+    addLine(msg.line);
+  } else if (msg.type === "letters") {
+    letterCfg = msg.config;
+    renderLetters();
+  } else if (msg.type === "game") {
+    gameState = msg.state;
+    renderGame();
+    renderParty();
+  } else if (msg.type === "telemetry") {
+    updateTelemetry(msg.data);
+  } else if (msg.type === "history") {
+    if ($("log")) $("log").innerHTML = "";
+    msg.lines.forEach((l) => addLine(l.line));
+  } else if (msg.type === "clients") {
+    renderClients(msg.clients, msg.max || 3);
+  } else if (msg.type === "error" && msg.code === "MAX_CLIENTS") {
+    showMaxClientsModal(msg.message);
+  } else if (msg.type === "timeout" || msg.type === "kicked") {
+    showTimeoutModal(msg.message);
+  }
+}
+
 function connectCustomServer(hostUrl) {
   let target = hostUrl.trim().replace(/^https?:\/\//, "").replace(/^wss?:\/\//, "").replace(/\/+$/, "").replace(/\/ws$/, "");
   if (!target) return;
@@ -1975,24 +2437,7 @@ function connectCustomServer(hostUrl) {
       connectedTarget = null;
       renderStatus();
     };
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "status") {
-        state = msg;
-        renderStatus();
-      } else if (msg.type === "log") {
-        addLine(msg.line);
-      } else if (msg.type === "letters") {
-        letterCfg = msg.config;
-        renderLetters();
-      } else if (msg.type === "game") {
-        gameState = msg.state;
-        renderGame();
-        renderParty();
-      } else if (msg.type === "telemetry") {
-        updateTelemetry(msg.data);
-      }
-    };
+    ws.onmessage = handleWsMessage;
   } catch (err) {
     alert(`Invalid server address: ${err.message || err}`);
   }
@@ -2043,27 +2488,7 @@ function connect() {
     ws.onerror = () => {
       if (wsRetry > 1) enableClientMode();
     };
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "status") {
-        state = msg;
-        renderStatus();
-      } else if (msg.type === "log") {
-        addLine(msg.line);
-      } else if (msg.type === "letters") {
-        letterCfg = msg.config;
-        renderLetters();
-      } else if (msg.type === "game") {
-        gameState = msg.state;
-        renderGame();
-        renderParty();
-      } else if (msg.type === "telemetry") {
-        updateTelemetry(msg.data);
-      } else if (msg.type === "history") {
-        if ($("log")) $("log").innerHTML = "";
-        msg.lines.forEach((l) => addLine(l.line));
-      }
-    };
+    ws.onmessage = handleWsMessage;
   } catch (e) {
     enableClientMode();
   }
@@ -2073,4 +2498,6 @@ function connect() {
 renderLetters();
 renderGame();
 initClientRobots(3);
+setLanguage(currentLang);
+initQRCode();
 connect();
