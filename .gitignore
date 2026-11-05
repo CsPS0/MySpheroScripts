@@ -16,3 +16,6 @@ humanizer/
 .cursor-plugin/
 .claude-plugin/
 .playwright-mcp/
+*.zip
+*.bundle
+
