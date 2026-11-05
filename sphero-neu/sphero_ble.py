@@ -29,6 +29,25 @@ from spherov2 import scanner
 SCAN_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 30.0
 ATTEMPTS = 3
+BOLTS_CACHE_FILE = Path("/tmp/sphero_bolts_cache.json")
+
+
+def load_cached_bolts():
+    if BOLTS_CACHE_FILE.exists():
+        try:
+            import json
+            return json.loads(BOLTS_CACHE_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def save_cached_bolts(data):
+    try:
+        import json
+        BOLTS_CACHE_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
 
 
 def is_simulation():
@@ -194,6 +213,18 @@ def find_toy(name=None, timeout=SCAN_TIMEOUT, toy_type=scanner.BOLT, adapter=Non
         import sphero_sim
         sphero_sim.enable_simulation()
         return sphero_sim.SimulatorManager.get().get_toy(name or "BOLT-1")
+
+    # Fast path: check cached address from startup pool
+    cached = load_cached_bolts()
+    target_addr = cached.get(name.upper()) if name else None
+    if target_addr:
+        try:
+            cached_toys = scanner.find_toys(timeout=2.0, toy_types=[toy_type],
+                                             toy_names=[target_addr], adapter=adapter_class(adapter))
+            if cached_toys:
+                return cached_toys[0]
+        except Exception:
+            pass
 
     # If specific Bluetooth name (e.g. SB-3FF5) was requested
     if name and name.upper().startswith("SB-"):

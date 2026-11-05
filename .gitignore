@@ -19,3 +19,9 @@ humanizer/
 *.zip
 *.bundle
 
+# SSL Certificates & keys
+sphero-neu/web/certs/
+*.pem
+*.key
+
+

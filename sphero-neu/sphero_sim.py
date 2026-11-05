@@ -70,12 +70,16 @@ class SimulatedToy:
 
         self.is_connected = False
         self._api = None
+        self._voltage = round(3.90 + (abs(hash(name)) % 25) * 0.01, 2)
 
     def wake(self):
         self.is_connected = True
 
     def get_battery_voltage(self):
-        return 3.92
+        return self._voltage
+
+    def get_battery_percentage(self):
+        return max(5, min(100, int((self._voltage - 3.4) / (4.2 - 3.4) * 100)))
 
     def get_main_app_version(self):
         return "5.3"
@@ -380,8 +384,9 @@ class SimulatorManager:
                 })
 
         try:
-            line = "TELEMETRY " + json.dumps(telemetry)
-            print(line, flush=True)
+            if not any("server" in arg.lower() for arg in sys.argv):
+                line = "TELEMETRY " + json.dumps(telemetry)
+                print(line, flush=True)
         except Exception:
             pass
 
