@@ -808,3 +808,131 @@ footer.app-footer {
   justify-content: space-between;
 }
 
+/* Intro View & QR Code Section */
+.intro-hero {
+  text-align: center;
+  padding: 24px 16px 16px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.intro-hero h2 {
+  font-size: 1.8rem;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.intro-hero p {
+  color: var(--muted);
+  font-size: 1.05rem;
+  margin: 0 0 20px;
+}
+.qr-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 440px;
+  margin: 0 auto 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+.qr-frame {
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  margin-bottom: 16px;
+}
+.qr-frame canvas, .qr-frame img {
+  display: block;
+}
+.qr-url-badge {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: #58a6ff;
+  font-weight: 700;
+  margin-bottom: 12px;
+  word-break: break-all;
+}
+.qr-steps {
+  text-align: left;
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* Device Manager / Host Panel */
+.host-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  max-width: 760px;
+  margin: 0 auto 24px;
+}
+.host-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.host-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.device-slots-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #58a6ff;
+}
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.device-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.device-info .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.device-time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+

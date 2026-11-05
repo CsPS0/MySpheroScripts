@@ -9,3 +9,10 @@ venv/
 .pytest_cache/
 .DS_Store
 Thumbs.db
+
+# Local skill packages & AI tooling
+humanizer/
+.agents/
+.cursor-plugin/
+.claude-plugin/
+.playwright-mcp/

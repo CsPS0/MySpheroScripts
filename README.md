@@ -4,81 +4,77 @@
 [![Hardware](https://img.shields.io/badge/Hardware-Sphero%20BOLT-00A4E4?logo=bluetooth&logoColor=white)](https://sphero.com/)
 [![Hosting](https://img.shields.io/badge/Hosting-GitHub%20Pages%20%7C%20Vercel-black?logo=github&logoColor=white)](https://pages.github.com/)
 [![OS](https://img.shields.io/badge/OS-Arch%20Linux%20Verified-1793d1?logo=archlinux&logoColor=white)](https://archlinux.org/)
-[![Control](https://img.shields.io/badge/Joystick-60%20FPS%20Zero--Lag-2ea043)](#)
-[![Audio](https://img.shields.io/badge/Audio-Web%20Audio%20API-orange)](#)
+[![Language](https://img.shields.io/badge/Language-Magyar%20(HU)%20%7C%20English-success)](#)
+[![Control](https://img.shields.io/badge/Max%20Controllers-3%20Devices%20%7C%205m%20Watchdog-blue)](#)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A complete control, simulation, and presentation platform for **Sphero BOLT** robots, designed for school presentations, open houses, and robotics demonstrations.
+A complete control, simulation, and presentation platform for **Sphero BOLT** robots, designed for school open houses, robotics presentations, and interactive classroom demonstrations.
 
-Featuring a **2D physics floor arena**, **Web Audio synthesizer sound effects**, **choreographed dance shows**, **multiplayer party games**, and a **smooth analog virtual joystick** with zero lag.
-
-Runs **standalone in any web browser** (hosted on **GitHub Pages** or **Vercel** with full mobile touch controls) or as a **local Python backend** on **Arch Linux** with Bluetooth connectivity.
+Featuring an **interactive monitor introduction view with QR Code connection**, **bilingual support (Hungarian default, English backup)**, a **3-controller device limit with automatic 5-minute inactivity disconnect**, **2D physics floor arena**, **party games**, and an **analog virtual joystick** with zero lag.
 
 ---
 
 ## Table of Contents
-1. [Which Hosting is Better: Vercel vs GitHub Pages?](#which-hosting-is-better-vercel-vs-github-pages)
-2. [Hosting on GitHub Pages (60 Seconds)](#hosting-on-github-pages-60-seconds)
-3. [Hosting on Vercel (1-Click)](#hosting-on-vercel-1-click)
-4. [Running on Arch Linux (Step-by-Step)](#running-on-arch-linux-step-by-step)
-5. [Connecting Your Phone as a Remote Control](#connecting-your-phone-as-a-remote-control)
-6. [Dynamic Bluetooth Discovery (No Hardcoded IDs)](#dynamic-bluetooth-discovery-no-hardcoded-ids)
-7. [School Presentation Playbook (Ages 9–11)](#school-presentation-playbook-ages-911)
+1. [School Monitor Setup (Arch Linux)](#school-monitor-setup-arch-linux)
+2. [QR Code & Mobile Control Connection](#qr-code--mobile-control-connection)
+3. [Device Slots & Inactivity Management (3 Devices, 5 Min Timeout)](#device-slots--inactivity-management-3-devices-5-min-timeout)
+4. [Bilingual Support (Hungarian Default, English Backup)](#bilingual-support-hungarian-default-english-backup)
+5. [Running on Arch Linux (Step-by-Step)](#running-on-arch-linux-step-by-step)
+6. [Hosting on GitHub Pages (Standalone Mode)](#hosting-on-github-pages-standalone-mode)
+7. [School Presentation Playbook (Ages 10–14)](#school-presentation-playbook-ages-1014)
 
 ---
 
-## Which Hosting is Better: Vercel vs GitHub Pages?
+## School Monitor Setup (Arch Linux)
 
-| Feature | GitHub Pages | Vercel |
-| :--- | :--- | :--- |
-| **Setup Effort** | **Easiest** (Toggle 1 switch in GitHub repo settings) | Requires connecting a free Vercel account |
-| **Build & Deploy Time** | 30–60 seconds per push | **Instant** (5–10 seconds) |
-| **Custom Domain & SSL** | Automatic free `*.github.io` + HTTPS | Automatic free `*.vercel.app` + Edge CDN |
-| **Mobile Phone Speed** | Excellent | **Fastest** (Global edge caching) |
-| **Backend Support** | Static / client-side simulation only | Static / client-side simulation (or serverless) |
-| **Best For** | **Tomorrow's presentation** (zero accounts needed) | If you already use Vercel and want instant preview URLs |
+When running the presentation on your laptop connected to an external monitor or projector:
 
-### Recommendation:
-- **GitHub Pages** is the recommended choice for tomorrow because it is already built into your repository. You don't need any new logins, APIs, or configuration. You push to GitHub, turn on Pages, and open the URL on your phone immediately.
-- If you already have a [Vercel](https://vercel.com) account, Vercel gives you instant edge CDN loading and short URLs (`sphero.vercel.app`).
-
----
-
-## Hosting on GitHub Pages (60 Seconds)
-
-[![GitHub Pages Deployment](https://img.shields.io/badge/Deploy-GitHub%20Pages-181717?logo=github&logoColor=white)](https://pages.github.com/)
-
-1. Commit and push your files:
+1. Start the server on Arch Linux:
    ```bash
-   git add .
-   git commit -m "Organize modular UI, virtual joystick, and simulation suite"
-   git push origin main
+   python web/server.py --host 0.0.0.0 --port 8080
    ```
-2. Open your GitHub repository in your web browser:
-   - Click **Settings** (top navigation tab).
-   - Click **Pages** in the left sidebar menu.
-   - Under **Build and deployment** -> **Branch**:
-     - Select branch: `main`
-     - Select folder: `/(root)`
-   - Click **Save**.
-3. In under a minute, your website will be live at:
-   ```
-   https://<your-username>.github.io/<your-repo-name>/
-   ```
-4. Open the link on your phone or laptop. The standalone simulation engine activates automatically with full audio and joystick steering!
+2. Open `http://localhost:8080` in your browser on the laptop and put it in full screen (`F11`).
+3. The monitor automatically displays the **Bemutató (Introduction)** view:
+   - Welcomes students and visitors in natural Hungarian.
+   - Generates a **live QR Code** with the laptop's exact local Wi-Fi / hotspot address (`http://192.168.x.x:8080`).
+   - Displays how many phones are currently connected (`0 / 3 telefon`).
+   - Allows the teacher / host to disconnect any idle phone with a single click.
 
 ---
 
-## Hosting on Vercel (1-Click)
+## QR Code & Mobile Control Connection
 
-[![Deploy with Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/new)
+Students or parents don't need to install any app:
 
-1. Push your code to GitHub.
-2. Go to [vercel.com](https://vercel.com) and log in.
-3. Click **Add New...** -> **Project**.
-4. Import your `MySpheroScripts` GitHub repository.
-5. Keep default settings (`index.html` at root is automatically detected via [`vercel.json`](vercel.json)).
-6. Click **Deploy**. Your custom URL (e.g. `sphero-sim.vercel.app`) is live instantly.
+1. They open the **Camera app** on their smartphone (Android or iPhone).
+2. They point the camera at the **QR Code** on the laptop monitor.
+3. Tapping the link opens the controller interface in their mobile browser.
+4. The phone acts as a pure remote control interface; all Bluetooth commands to the Sphero robots are handled by the Arch Linux laptop setup.
+
+---
+
+## Device Slots & Inactivity Management (3 Devices, 5 Min Timeout)
+
+To maintain order and ensure every visiting student gets a turn:
+
+- **3-Controller Limit**:
+  - The Arch server accepts up to **3 simultaneous mobile controller connections**.
+  - The laptop monitor itself (localhost) is recognized as the host display and does not take up a controller slot.
+  - If a 4th student tries to connect, a friendly notification appears asking them to wait until a slot opens up.
+- **5-Minute Inactivity Watchdog**:
+  - If a student or parent walks away without disconnecting, the server detects when 5 minutes (300 seconds) have passed without touch or joystick activity.
+  - The server automatically frees up their slot so the next student in line can connect.
+- **Host One-Click Disconnect**:
+  - On the laptop monitor, the **Csatlakoztatott telefonok** panel lists each active phone, its IP address, and its idle time.
+  - The host can click the red **Lekapcsolás (Disconnect)** button next to any device to release its slot immediately.
+
+---
+
+## Bilingual Support (Hungarian Default, English Backup)
+
+- **Default Language**: **Magyar (Hungarian)**, tailored specifically for middle schoolers (10–14 years old) with natural, direct phrasing following humanizer editing principles.
+- **English Backup**: Click the **HU | EN** button in the top navbar at any time to instantly toggle between Hungarian and English.
+- User choice is saved in browser storage (`localStorage`).
 
 ---
 
@@ -86,27 +82,19 @@ Runs **standalone in any web browser** (hosted on **GitHub Pages** or **Vercel**
 
 [![Arch Linux](https://img.shields.io/badge/Arch%20Linux-Pacman%20%7C%20BlueZ-1793d1?logo=archlinux&logoColor=white)](https://archlinux.org/)
 
-If you have physical Sphero BOLT robots and want to run the full Python Bluetooth backend on your Arch Linux laptop:
-
 ### 1. Install System Dependencies
-Open a terminal on Arch Linux and install BlueZ, Bluetooth tools, and Python:
 ```bash
 sudo pacman -Syu --needed python python-pip bluez bluez-utils
 ```
 
 ### 2. Enable & Start Bluetooth Service
-Ensure the Linux Bluetooth daemon is running:
 ```bash
 sudo systemctl enable --now bluetooth.service
-```
-Verify Bluetooth is unblocked:
-```bash
 rfkill unblock bluetooth
 bluetoothctl power on
 ```
 
-### 3. Set Up Python Virtual Environment
-Navigate to the `sphero-neu` project directory:
+### 3. Set Up Virtual Environment
 ```bash
 cd ~/MySpheroScripts/sphero-neu
 python -m venv .venv
@@ -114,81 +102,40 @@ source .venv/bin/activate
 pip install -r requirements.txt fastapi "uvicorn[standard]"
 ```
 
-### 4. Launch the Web Server
-Run Uvicorn bound to `0.0.0.0` so other devices (like your phone) can connect:
+### 4. Launch the Server
 ```bash
-python -m uvicorn web.server:app --host 0.0.0.0 --port 8080
+python web/server.py --host 0.0.0.0 --port 8080
 ```
 
-- Local laptop URL: `http://localhost:8080`
-- Simulation toggle: Click the **Simulation Mode** pill in the top header anytime to switch between physical Bluetooth and virtual simulation.
+- Open `http://localhost:8080` on the laptop monitor.
+- The QR Code generates automatically for mobile connections.
 
 ---
 
-## Connecting Your Phone as a Remote Control
+## Hosting on GitHub Pages (Standalone Mode)
 
-### Method A: Local Wi-Fi or Phone Hotspot (Fastest)
-1. Ensure your laptop and phone are on the same Wi-Fi network, **or** turn on your phone's **Personal Hotspot** and connect your Arch laptop to it.
-2. Check your laptop's IP address:
-   ```bash
-   hostname -I
-   # Example output: 192.168.43.150
-   ```
-3. On your phone's browser, go to:
-   ```
-   http://192.168.43.150:8080
-   ```
+[![GitHub Pages Deployment](https://img.shields.io/badge/Deploy-GitHub%20Pages-181717?logo=github&logoColor=white)](https://pages.github.com/)
 
-### Method B: Cloudflare Tunnel (Bypasses School Wi-Fi Restrictions)
-School Wi-Fi networks often block direct peer-to-peer connections between devices. You can bypass this with a free, zero-config Cloudflare tunnel:
-```bash
-npx cloudflared tunnel --url http://localhost:8080
-```
-This prints a public HTTPS address:
-```
-https://random-words.trycloudflare.com
-```
-Open that address on your smartphone from anywhere in the room.
+If presenting away from the Arch Linux laptop:
+1. Open **`https://csps0.github.io/MySpheroScripts/`** on your smartphone.
+2. Tap **Csatlakozás (Connect)** in the header.
+3. Tap **Sphero Keresése és Párosítása (Scan & Pair via Bluetooth)** to connect directly over phone Web Bluetooth.
 
 ---
 
-## Dynamic Bluetooth Discovery (No Hardcoded IDs)
+## School Presentation Playbook (Ages 10–14)
 
-[![Bluetooth LE](https://img.shields.io/badge/Bluetooth-LE%205.0%20Dynamic%20Scan-0082FC?logo=bluetooth&logoColor=white)](#)
+Recommended flow for visiting students:
 
-Previously, scripts assumed specific robot names (e.g. `SB-3FF5`, `SB-034E`, `SB-61A9`). If robots were swapped or different BOLTs were brought, the programs failed.
-
-**What was changed:**
-- **Dynamic BLE Scan**: Scripts call `sphero_ble.discover_bolts(count)` to discover any advertising Sphero BOLTs in range.
-- **Random / Auto Selection**: Discovered robots are automatically assigned roles:
-  - **Robot 1**: Team Red
-  - **Robot 2**: Team Green
-  - **Robot 3**: Team Blue
-- **Zero Configuration**: Any 3 Sphero BOLTs can be turned on and used immediately without editing names in the code!
-
----
-
-## School Presentation Playbook (Ages 9–11)
-
-Recommended order of demonstration to maximize excitement:
-
-1. **Synchronized Dance Show (Tab: Shows)**
-   - *Hook*: Tell the students: *"Let's see what happens when computer code coordinates multiple robots like dancers!"*
-   - Start the dance show: the robots roll in parallel, execute synchronized spins, show glowing solo matrix patterns, and orbit in a circle before a rainbow finale!
-
-2. **Hot Potato (Tab: Party Games)**
-   - *Interactive Challenge*: Start the game.
-   - The ball lights up green with ticking audio.
-   - Tap to pass the ball as the fuse gets faster and turns flashing red.
-   - Ends with a loud explosion blast and scream! Students will laugh and cheer.
-
-3. **Whack-a-Mole & Simon Says (Tab: Party Games)**
-   - Invite a student volunteer to the front to play **Whack-a-Mole** (tapping the neon green robot) or **Simon Says** (repeating the musical tones).
-
-4. **Manual RC Drive (Tab: Manual Drive)**
-   - Hand your phone to a student or steer the robot yourself using the **Virtual Joystick**.
-   - Show how dragging the thumbstick controls heading ($0^\circ\text{ to }360^\circ$) and throttle with instant responsiveness.
-
-5. **Floor Tic-Tac-Toe (Tab: Tic-Tac-Toe)**
-   - 9 robots arranged in a 3x3 grid. Students play against each other (Red X vs Blue O).
-   - Three in a row flashes green with victory audio!
+1. **Bevezetés & QR-Kód Csatlakozás (Tab: Bemutató)**
+   - Mutasd meg a monitoron a QR-kódot: *"Olvassátok be a telefonotokkal a QR-kódot, és próbáljátok ki az irányítást!"*
+2. **Szinkrontánc (Tab: Műsorok)**
+   - Indítsd el a 3 robot szinkronizált táncát a monitorról. A robotok köröznek, alakzatot váltanak, és szivárványos fénnyel zárnak.
+3. **NEU Iskolai Felirat (Tab: Műsorok)**
+   - A robotok beállnak egymás mellé, és kirakják az N, E, U betűket a kijelzőjükön.
+4. **Kézi Botkormány (Tab: Botkormány)**
+   - A csatlakozott 3 diák a telefonján lévő analóg virtuális karral szabadon navigálhatja a robotokat a padlón.
+5. **Csapatjátékok (Tab: Játékok)**
+   - **Forró Krumpli**: A diákok körben állnak, és gyorsan továbbadják a robotot a kanóc lejárta előtt.
+   - **Vakondvadászat**: Gyors reflexjáték a felvillanó zöld robot megérintésével.
+   - **Kő-Papír-Olló**: Két robot párbaja 3-2-1 visszaszámlálással.
