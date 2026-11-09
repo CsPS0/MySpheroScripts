@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sphero BOLT &bull; Neumann Bemutató</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%2300a4e4'/><circle cx='50' cy='50' r='20' fill='%23ffffff'/></svg>">
-<link rel="stylesheet" href="assets/css/styles.css">
+<link rel="stylesheet" href="assets/css/styles.css?v=2">
 <script src="assets/js/qrcode.min.js"></script>
 </head>
 <body>
@@ -285,8 +285,9 @@
               </div>
             </div>
             <div class="party-save-row">
-              <button type="button" id="btn-save-party-prefs" class="ghost sm" data-i18n="party_save_prefs">
-                <svg class="icon"><use href="#i-check"/></svg><span data-i18n="party_save_prefs">Beállítások mentése</span>
+              <button type="button" id="btn-save-party-prefs" class="btn btn-save-prefs">
+                <svg class="icon"><use href="#i-check"/></svg>
+                <span data-i18n="party_save_prefs">Beállítások mentése</span>
               </button>
               <span id="party-prefs-saved-hint" class="save-status-text" hidden data-i18n="party_prefs_saved">Elmentve! (Megmarad új körben is)</span>
             </div>
@@ -437,6 +438,6 @@
   </div>
 </div>
 
-<script src="assets/js/app.js" defer></script>
+<script src="assets/js/app.js?v=2" defer></script>
 </body>
 </html>
