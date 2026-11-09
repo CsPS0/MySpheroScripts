@@ -32,8 +32,9 @@ Ends on Ctrl+C.
 import argparse
 import colorsys
 import contextlib
-import math
 import json
+import math
+import pathlib
 import queue
 import random
 import threading
@@ -45,6 +46,20 @@ import indicators
 import sphero_ble
 import tictactoe
 from tictactoe import OFF, Display, ShakeDetector
+
+MINIGAMES_CONFIG_FILE = pathlib.Path(__file__).resolve().parent / "data" / "minigames.json"
+
+
+def load_minigames_config(game_id):
+    defaults = {"speed": "normal", "layout": "3x3", "drift": False}
+    try:
+        if MINIGAMES_CONFIG_FILE.exists():
+            data = json.loads(MINIGAMES_CONFIG_FILE.read_text())
+            if game_id in data and isinstance(data[game_id], dict):
+                defaults.update(data[game_id])
+    except Exception:
+        pass
+    return defaults
 
 WHITE = Color(255, 255, 255)
 RED = Color(255, 0, 0)
@@ -90,6 +105,66 @@ class Party:
         self.labels = {r: "" for r in displays}
         self.status = self.info = ""
         self.phase = "idle"
+        self.speed = str(cfg.get("speed", "normal"))
+        self.layout = str(cfg.get("layout", "3x3"))
+        self.drift = bool(cfg.get("drift", False))
+        self.drift_stop_at = None
+
+    def trigger_drift(self):
+        if not getattr(self, "drift", False):
+            return
+        if sphero_ble.is_simulation():
+            try:
+                import sphero_sim
+                sim = sphero_sim.SimulatorManager.get()
+                with sim.lock:
+                    for r in self.displays:
+                        toy = sim.get_toy(self.names.get(r))
+                        if toy:
+                            cx, cy = 0.0, 40.0
+                            dx, dy = cx - toy.x, cy - toy.y
+                            if math.hypot(dx, dy) > 35.0:
+                                base_angle = math.degrees(math.atan2(dx, dy))
+                                angle = (base_angle + (random.random() - 0.5) * 50.0) % 360
+                            else:
+                                angle = random.uniform(0, 360)
+                            toy.heading = angle
+                            toy.speed = random.uniform(18.0, 26.0)
+                self.drift_stop_at = time.monotonic() + 0.35
+            except Exception:
+                pass
+        else:
+            try:
+                for r, disp in self.displays.items():
+                    with contextlib.suppress(Exception):
+                        disp.api.set_stabilization(True)
+                        disp.api.set_heading(random.randint(0, 359))
+                        disp.api.set_speed(24)
+                self.drift_stop_at = time.monotonic() + 0.35
+            except Exception:
+                pass
+
+    def check_drift_stop(self, now):
+        if getattr(self, "drift_stop_at", None) and now >= self.drift_stop_at:
+            self.drift_stop_at = None
+            if sphero_ble.is_simulation():
+                try:
+                    import sphero_sim
+                    sim = sphero_sim.SimulatorManager.get()
+                    with sim.lock:
+                        for r in self.displays:
+                            toy = sim.get_toy(self.names.get(r))
+                            if toy:
+                                toy.speed = 0.0
+                except Exception:
+                    pass
+            else:
+                for r, disp in self.displays.items():
+                    with contextlib.suppress(Exception):
+                        disp.api.set_speed(0)
+                        disp.api.set_stabilization(False)
+            return True
+        return False
 
     def solid(self, r, color, led=None, label=""):
         self.shown[r], self.labels[r] = color, label
@@ -118,6 +193,9 @@ class Party:
         return {
             "kind": "party", "game": self.id, "title": self.title, "phase": self.phase,
             "status": self.status, "info": self.info,
+            "speed": getattr(self, "speed", "normal"),
+            "layout": getattr(self, "layout", "3x3"),
+            "drift": getattr(self, "drift", False),
             "cells": [{"robot": self.names[r], "color": hexcolor(self.shown[r]), "label": self.labels[r]}
                       for r in sorted(self.displays)],
         }
@@ -125,14 +203,25 @@ class Party:
 
 class Simon(Party):
     id, title, want, need = "simon", "Memory Game", 9, 2
-    GAP = 0.25          # s dark between two steps of the sequence
-    INPUT_TIMEOUT = 12  # s without a shake ends the game
 
     def __init__(self, *args):
         super().__init__(*args)
         self.color = {r: PALETTE[r % len(PALETTE)] for r in self.displays}
         self.best, self.seq, self.flash = 0, [], {}
         self.idle("Memory Game: shake any ball or press Start.")
+
+    @property
+    def gap_time(self):
+        return {"slow": 0.40, "normal": 0.25, "fast": 0.15, "insane": 0.08}.get(self.speed, 0.25)
+
+    @property
+    def input_timeout(self):
+        return {"slow": 16.0, "normal": 12.0, "fast": 8.0, "insane": 5.0}.get(self.speed, 12.0)
+
+    def on_time(self):
+        base = max(0.35, 0.8 - 0.04 * len(self.seq))
+        factor = {"slow": 1.4, "normal": 1.0, "fast": 0.62, "insane": 0.35}.get(self.speed, 1.0)
+        return max(0.12, base * factor)
 
     def rest(self, r):
         self.solid(r, dim(self.color[r], 0.12), OFF)
@@ -155,9 +244,6 @@ class Simon(Party):
         self.info = f"Level {len(self.seq)}. Best {self.best}."
         self.say(f"Level {len(self.seq)}: watch the balls.")
 
-    def on_time(self):
-        return max(0.35, 0.8 - 0.04 * len(self.seq))
-
     def shake(self, r):
         now = time.monotonic()
         if self.phase == "idle":
@@ -175,7 +261,7 @@ class Simon(Party):
         self.solid(r, self.color[r], WHITE)
         self.flash[r] = now + 0.4
         self.pos += 1
-        self.input_until = now + self.INPUT_TIMEOUT
+        self.input_until = now + self.input_timeout
         if self.pos == len(self.seq):
             self.best = max(self.best, len(self.seq))
             self.phase, self.next_at = "pause", now + 1.3
@@ -183,7 +269,7 @@ class Simon(Party):
         return True
 
     def tick(self, now):
-        changed = False
+        changed = self.check_drift_stop(now)
         for r, until in list(self.flash.items()):
             if now >= until:
                 del self.flash[r]
@@ -194,15 +280,16 @@ class Simon(Party):
             if self.lit is not None:
                 self.rest(self.lit)
                 self.lit, self.step = None, self.step + 1
-                self.next_at = now + self.GAP
+                self.next_at = now + self.gap_time
                 if self.step == len(self.seq):
                     self.phase, self.pos = "input", 0
-                    self.input_until = now + self.INPUT_TIMEOUT
+                    self.input_until = now + self.input_timeout
                     self.say(f"Your turn: shake the {len(self.seq)} balls in the same order.")
             else:
                 self.lit = self.seq[self.step]
                 self.solid(self.lit, self.color[self.lit], WHITE)
                 self.next_at = now + self.on_time()
+                self.trigger_drift()
             return True
         if self.phase == "input" and now >= self.input_until:
             self.best = max(self.best, len(self.seq) - 1)
@@ -248,10 +335,14 @@ class Mole(Party):
         return True
 
     def window(self, now):
-        return max(1.2, 2.4 - 1.2 * (now - self.started) / self.ROUND)
+        base = max(1.2, 2.4 - 1.2 * (now - self.started) / self.ROUND)
+        factor = {"slow": 1.5, "normal": 1.0, "fast": 0.65, "insane": 0.35}.get(self.speed, 1.0)
+        return max(0.35, base * factor)
 
     def gap(self):
-        return 1.7 if len(self.displays) == 1 else random.uniform(0.3, 0.9)
+        base = 1.7 if len(self.displays) == 1 else random.uniform(0.3, 0.9)
+        factor = {"slow": 1.4, "normal": 1.0, "fast": 0.65, "insane": 0.35}.get(self.speed, 1.0)
+        return base * factor
 
     def shake(self, r):
         now = time.monotonic()
@@ -271,7 +362,7 @@ class Mole(Party):
 
     def tick(self, now):
         if self.phase == "play":
-            changed = False
+            changed = self.check_drift_stop(now)
             for r, until in list(self.flash.items()):
                 if now >= until:
                     del self.flash[r]
@@ -297,6 +388,7 @@ class Mole(Party):
                     self.mole = self.last = random.choice(choices)
                     self.mole_until = now + self.window(now)
                     self.solid(self.mole, self.MOLE)
+                    self.trigger_drift()
                     changed = True
             if int(left) != self.second:
                 self.second = int(left)
@@ -574,10 +666,12 @@ def main():
     parser.add_argument("game", choices=GAMES)
     game_arg = parser.parse_args().game
     game_class = GAMES[game_arg]
+    minigames_cfg = load_minigames_config(game_arg)
     if sphero_ble.is_simulation():
         import sphero_sim
-        sphero_sim.SimulatorManager.get().apply_layout(game_arg)
+        sphero_sim.SimulatorManager.get().apply_layout(game_arg, layout=minigames_cfg.get("layout", "3x3"))
     cfg = tictactoe.load_config()
+    cfg.update(minigames_cfg)
     with contextlib.ExitStack() as stack:
         robots = tictactoe.connect_robots(cfg, stack, want=game_class.want)
         if len(robots) < game_class.need:
@@ -622,8 +716,23 @@ def main():
                 elif cmd and cmd.startswith("config "):
                     with contextlib.suppress(ValueError, KeyError):
                         new = json.loads(cmd[len("config "):])
-                        cfg["rotation"] = int(new["rotation"]) // 90 * 90 % 360
-                        cfg["mirror"] = bool(new["mirror"])
+                        if "rotation" in new:
+                            cfg["rotation"] = int(new["rotation"]) // 90 * 90 % 360
+                        if "mirror" in new:
+                            cfg["mirror"] = bool(new["mirror"])
+                        if "speed" in new:
+                            cfg["speed"] = str(new["speed"])
+                            game.speed = cfg["speed"]
+                        if "layout" in new:
+                            cfg["layout"] = str(new["layout"])
+                            game.layout = cfg["layout"]
+                            if sphero_ble.is_simulation():
+                                import sphero_sim
+                                sphero_sim.SimulatorManager.get().apply_layout(game_arg, layout=game.layout)
+                        if "drift" in new:
+                            cfg["drift"] = bool(new["drift"])
+                            game.drift = cfg["drift"]
+                        changed = True
                 changed |= bool(game.tick(time.monotonic()))
                 if changed:
                     emit()

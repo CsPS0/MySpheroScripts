@@ -390,7 +390,7 @@ class SimulatorManager:
             self.toys[name] = toy
             self.toys[f"BOLT-{idx}"] = toy
         self.active_toys = set()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.running = True
 
         prog = os.environ.get("SPHERO_PROGRAM", "")
@@ -409,7 +409,7 @@ class SimulatorManager:
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self.physics_thread.start()
 
-    def apply_layout(self, prog_name, count=None):
+    def apply_layout(self, prog_name, count=None, layout="3x3"):
         prog = (prog_name or "").lower()
         if "tictactoe" in prog or "ttt" in prog:
             # 3x3 grid: 1..3 top, 4..6 middle, 7..9 bottom
@@ -432,7 +432,31 @@ class SimulatorManager:
             # 15 robots distributed across arena (5 cols x 3 rows)
             coords = [(-50.0 + (i % 5) * 25.0, 15.0 + (i // 5) * 35.0) for i in range(15)]
         elif "simon" in prog or "mole" in prog:
-            coords = [(-20.0, 40.0), (20.0, 40.0), (-20.0, 10.0), (20.0, 10.0)]
+            n = count if (count and count > 0) else (len(self.active_toys) if self.active_toys else 9)
+            n = max(1, min(15, n))
+            if str(layout).lower() == "random":
+                coords = []
+                for idx in range(n):
+                    placed = False
+                    for _ in range(120):
+                        rx = round(random.uniform(-52.0, 52.0), 1)
+                        ry = round(random.uniform(12.0, 72.0), 1)
+                        if all(math.hypot(rx - ox, ry - oy) >= 22.0 for ox, oy in coords):
+                            coords.append((rx, ry))
+                            placed = True
+                            break
+                    if not placed:
+                        coords.append((-45.0 + (idx % 5) * 22.0, 15.0 + (idx // 5) * 25.0))
+            else:
+                if n <= 4:
+                    coords = [(-18.0, 50.0), (18.0, 50.0), (-18.0, 22.0), (18.0, 22.0)]
+                else:
+                    xs = [-28.0, 0.0, 28.0]
+                    ys = [66.0, 40.0, 14.0]
+                    coords = [(x, y) for y in ys for x in xs]
+                    if n > 9:
+                        for extra in range(n - 9):
+                            coords.append((-50.0 + extra * 20.0, -5.0))
         elif "rps" in prog:
             coords = [(-20.0, 25.0), (20.0, 25.0)]
         elif "potato" in prog:

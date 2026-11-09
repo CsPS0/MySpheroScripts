@@ -467,9 +467,10 @@ class Runner:
             if self.simulation:
                 env["SPHERO_SIM"] = "1"
                 env["SPHERO_PROGRAM"] = program_id
+                party_layout = load_minigames().get(program_id, {}).get("layout", "3x3") if program_id in ("simon", "mole") else "3x3"
                 with contextlib.suppress(Exception):
                     import sphero_sim
-                    sphero_sim.SimulatorManager.get().apply_layout(program_id, count=len(self.robots) or 9)
+                    sphero_sim.SimulatorManager.get().apply_layout(program_id, count=len(self.robots) or 9, layout=party_layout)
 
             venv_sub = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
             if (ROOT / ".venv" / venv_sub).exists():
@@ -855,6 +856,56 @@ async def game(action: dict):
     return {"ok": True}
 
 
+MINIGAMES_CONFIG = ROOT / "data" / "minigames.json"
+
+DEFAULT_MINIGAMES_CONFIG = {
+    "simon": {
+        "speed": "normal",
+        "layout": "3x3",
+        "drift": False,
+    },
+    "mole": {
+        "speed": "normal",
+        "layout": "3x3",
+        "drift": False,
+    },
+}
+
+
+def load_minigames():
+    try:
+        if MINIGAMES_CONFIG.exists():
+            data = json.loads(MINIGAMES_CONFIG.read_text())
+            cfg = {k: dict(v) for k, v in DEFAULT_MINIGAMES_CONFIG.items()}
+            for k, v in data.items():
+                if k in cfg and isinstance(v, dict):
+                    cfg[k].update(v)
+            return cfg
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return {k: dict(v) for k, v in DEFAULT_MINIGAMES_CONFIG.items()}
+
+
+@app.get("/api/minigames")
+async def get_minigames():
+    return load_minigames()
+
+
+@app.post("/api/minigames", dependencies=ADMIN)
+async def change_minigames(change: dict):
+    """{"game": "simon"|"mole", "config": {"speed": "normal", "layout": "3x3", "drift": false}}"""
+    cfg = load_minigames()
+    game_id = change.get("game")
+    if game_id in cfg and isinstance(change.get("config"), dict):
+        cfg[game_id].update(change["config"])
+        MINIGAMES_CONFIG.parent.mkdir(exist_ok=True)
+        MINIGAMES_CONFIG.write_text(json.dumps(cfg, indent=2))
+        await runner.broadcast({"type": "minigames", "config": cfg})
+        if runner.program == game_id:
+            await runner.send_line("config " + json.dumps(cfg[game_id]) + "\n", "game")
+    return cfg
+
+
 DANCE_CONFIG = ROOT / "data" / "dance.json"
 
 
@@ -1119,6 +1170,7 @@ async def websocket(ws: WebSocket):
     await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect, "low_spec": runner.low_spec})
     await ws.send_json({"type": "calibration", "offsets": runner.calibration})
     await ws.send_json({"type": "dance", "config": load_dance()})
+    await ws.send_json({"type": "minigames", "config": load_minigames()})
     await runner.broadcast_clients()
 
     if role == "controller":
