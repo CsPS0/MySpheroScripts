@@ -740,7 +740,14 @@ def get_index_file():
 async def index():
     idx = get_index_file()
     if idx:
-        return FileResponse(idx)
+        return FileResponse(
+            idx,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
     raise HTTPException(404, "index.html not found")
 
 
