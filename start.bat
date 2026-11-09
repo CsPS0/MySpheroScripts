@@ -1,6 +1,10 @@
 @echo off
 setlocal
-cd /d "%~dp0sphero-neu"
+if exist "%~dp0sphero-neu" (
+    cd /d "%~dp0sphero-neu"
+) else (
+    cd /d "%~dp0"
+)
 
 REM Detect Python executable (virtualenv or system)
 set "PYTHON_EXE="

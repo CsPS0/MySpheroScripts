@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -e
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$ROOT_DIR/sphero-neu"
+if [ -d "$ROOT_DIR/sphero-neu" ]; then
+    cd "$ROOT_DIR/sphero-neu"
+else
+    cd "$ROOT_DIR"
+fi
 
 PYTHON_EXE=""
 if [ -x ".venv/bin/python" ]; then
