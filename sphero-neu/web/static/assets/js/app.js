@@ -1069,12 +1069,14 @@ function toCanvasCoords(cmX, cmY) {
 
 let lowPowerMode = (typeof localStorage !== "undefined" && localStorage.getItem("sphero_low_power") === "1");
 let lastArenaFrame = 0;
-const ARENA_FPS_INTERVAL = 1000 / 30; // Solid 30 FPS cap for smooth, lightweight rendering
+const ARENA_FPS_INTERVAL = 1000 / 60; // Solid 60 FPS cap for ultra-smooth rendering
 
 function resolveRobotCollisions(robots) {
   if (!robots || robots.length < 2) return;
-  const minDist = 9.0; // cm (robot diameter)
-  for (let iter = 0; iter < 2; iter++) {
+  const minDist = 15.0; // cm (matches visual diameter: 32px / 2.2 px/cm = 14.5 cm)
+  const minX = -80.0, maxX = 98.0, minY = -30.0, maxY = 135.0;
+
+  for (let iter = 0; iter < 3; iter++) {
     for (let i = 0; i < robots.length; i++) {
       const a = robots[i];
       for (let j = i + 1; j < robots.length; j++) {
@@ -1096,6 +1098,9 @@ function resolveRobotCollisions(robots) {
           }
         }
       }
+      // Strictly prevent escaping the visible arena boundary
+      a.x = Math.max(minX, Math.min(maxX, a.x));
+      a.y = Math.max(minY, Math.min(maxY, a.y));
     }
   }
 }
@@ -1109,8 +1114,8 @@ function renderArena(timestamp) {
     return;
   }
 
-  // Throttle render loop to 30 FPS (or 20 FPS in Eco mode) to eliminate GPU/CPU stalls
-  const targetInterval = lowPowerMode ? (1000 / 20) : ARENA_FPS_INTERVAL;
+  // Throttle render loop to 60 FPS (or 30 FPS in Eco mode)
+  const targetInterval = lowPowerMode ? (1000 / 30) : ARENA_FPS_INTERVAL;
   if (timestamp && (timestamp - lastArenaFrame < targetInterval)) {
     return;
   }
@@ -1169,12 +1174,12 @@ function renderArena(timestamp) {
     actx.strokeStyle = sp.color;
     actx.setLineDash([3, 3]);
     actx.beginPath();
-    actx.arc(p.cx, p.cy, 18, 0, Math.PI * 2);
+    actx.arc(p.cx, p.cy, 16, 0, Math.PI * 2);
     actx.stroke();
     actx.setLineDash([]);
     actx.fillStyle = sp.color;
     actx.font = "9px sans-serif";
-    actx.fillText(sp.label, p.cx - 15, p.cy + 28);
+    actx.fillText(sp.label, p.cx - 15, p.cy + 25);
   }
 
   // 2. Motion Trails
@@ -1211,7 +1216,7 @@ function renderArena(timestamp) {
       rx += (Math.random() - 0.5) * 8;
       ry += (Math.random() - 0.5) * 8;
     }
-    const rad = 22;
+    const rad = 16;
 
     actx.save();
     actx.translate(rx, ry);
@@ -1220,13 +1225,13 @@ function renderArena(timestamp) {
     const headingRad = (r.heading * Math.PI) / 180;
     actx.rotate(headingRad);
 
-    const beamGrad = actx.createRadialGradient(0, 0, rad, 0, -rad - 40, 50);
+    const beamGrad = actx.createRadialGradient(0, 0, rad, 0, -rad - 30, 40);
     beamGrad.addColorStop(0, "rgba(255, 255, 255, 0.35)");
     beamGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
     actx.fillStyle = beamGrad;
     actx.beginPath();
     actx.moveTo(0, 0);
-    actx.arc(0, 0, rad + 45, -Math.PI / 2 - 0.45, -Math.PI / 2 + 0.45);
+    actx.arc(0, 0, rad + 35, -Math.PI / 2 - 0.45, -Math.PI / 2 + 0.45);
     actx.closePath();
     actx.fill();
 
@@ -1234,7 +1239,7 @@ function renderArena(timestamp) {
     if (r.back_led && r.back_led !== "#000000") {
       actx.fillStyle = r.back_led;
       actx.beginPath();
-      actx.arc(0, rad - 2, 4, 0, Math.PI * 2);
+      actx.arc(0, rad - 2, 3, 0, Math.PI * 2);
       actx.fill();
     }
 
@@ -1250,13 +1255,13 @@ function renderArena(timestamp) {
 
     // Rim glow
     actx.strokeStyle = r.front_led !== "#000000" ? r.front_led : "rgba(100, 150, 255, 0.4)";
-    actx.lineWidth = 2;
+    actx.lineWidth = 1.8;
     actx.stroke();
 
     // 8x8 LED Matrix - batched for high performance
     if (r.matrix && r.matrix.length === 8) {
-      const dotSize = 2.4;
-      const dotSpacing = 3.2;
+      const dotSize = 2.0;
+      const dotSpacing = 2.5;
       const startX = -((7 * dotSpacing) / 2);
       const startY = -((7 * dotSpacing) / 2);
 
@@ -1294,13 +1299,13 @@ function renderArena(timestamp) {
 
     // Robot Name Tag
     actx.fillStyle = "#ffffff";
-    actx.font = "bold 11px sans-serif";
+    actx.font = "bold 10px sans-serif";
     actx.textAlign = "center";
-    actx.fillText(r.name, rx, ry + rad + 14);
+    actx.fillText(r.name, rx, ry + rad + 12);
 
     actx.fillStyle = "rgba(255, 255, 255, 0.55)";
     actx.font = "9px monospace";
-    actx.fillText(`(${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`, rx, ry + rad + 25);
+    actx.fillText(`(${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`, rx, ry + rad + 22);
   }
 }
 
@@ -1314,7 +1319,7 @@ function handleCanvasPointer(clientX, clientY) {
     const r = arenaRobots[idx];
     const p = toCanvasCoords(r.x, r.y);
     const dist = Math.hypot(mouseX - p.cx, mouseY - p.cy);
-    if (dist <= 30) {
+    if (dist <= 25) {
       shakeWobble[r.name] = Date.now() + 600;
       playPop();
       sendShake(idx + 1, r.name);
@@ -1361,21 +1366,21 @@ let letterCfg = DEFAULT_LETTER_CONFIG;
 
 function initClientRobots(count = 3) {
   const configs = [
-    { name: "BOLT 1", x: -25, y: 30, col: "#ff3b3b", matrixKey: "1" },
-    { name: "BOLT 2", x: 0, y: 30, col: "#2ecc71", matrixKey: "2" },
-    { name: "BOLT 3", x: 25, y: 30, col: "#3498db", matrixKey: "3" },
-    { name: "BOLT 4", x: -35, y: 0, col: "#f1c40f", matrixKey: "4" },
-    { name: "BOLT 5", x: -20, y: 0, col: "#e84393", matrixKey: "5" },
-    { name: "BOLT 6", x: -5, y: 0, col: "#00cec9", matrixKey: "6" },
-    { name: "BOLT 7", x: 10, y: 0, col: "#e67e22", matrixKey: "7" },
-    { name: "BOLT 8", x: 25, y: 0, col: "#ffffff", matrixKey: "8" },
-    { name: "BOLT 9", x: 40, y: 0, col: "#9b59b6", matrixKey: "9" },
-    { name: "BOLT 10", x: -35, y: -30, col: "#fd79a8", matrixKey: "1" },
-    { name: "BOLT 11", x: -20, y: -30, col: "#0984e3", matrixKey: "2" },
-    { name: "BOLT 12", x: -5, y: -30, col: "#00b894", matrixKey: "3" },
-    { name: "BOLT 13", x: 10, y: -30, col: "#ffeaa7", matrixKey: "4" },
-    { name: "BOLT 14", x: 25, y: -30, col: "#6c5ce7", matrixKey: "5" },
-    { name: "BOLT 15", x: 40, y: -30, col: "#d63031", matrixKey: "6" },
+    { name: "BOLT 1", x: 0, y: 0, col: "#ff3b3b", matrixKey: "1" },
+    { name: "BOLT 2", x: 18, y: 0, col: "#2ecc71", matrixKey: "2" },
+    { name: "BOLT 3", x: 36, y: 0, col: "#3498db", matrixKey: "3" },
+    { name: "BOLT 4", x: -50, y: 75, col: "#f1c40f", matrixKey: "4" },
+    { name: "BOLT 5", x: -25, y: 75, col: "#e84393", matrixKey: "5" },
+    { name: "BOLT 6", x: 0, y: 75, col: "#00cec9", matrixKey: "6" },
+    { name: "BOLT 7", x: 25, y: 75, col: "#e67e22", matrixKey: "7" },
+    { name: "BOLT 8", x: 50, y: 75, col: "#ffffff", matrixKey: "8" },
+    { name: "BOLT 9", x: -50, y: 105, col: "#9b59b6", matrixKey: "9" },
+    { name: "BOLT 10", x: -25, y: 105, col: "#fd79a8", matrixKey: "1" },
+    { name: "BOLT 11", x: 0, y: 105, col: "#0984e3", matrixKey: "2" },
+    { name: "BOLT 12", x: 25, y: 105, col: "#00b894", matrixKey: "3" },
+    { name: "BOLT 13", x: 50, y: 105, col: "#ffeaa7", matrixKey: "4" },
+    { name: "BOLT 14", x: -25, y: 125, col: "#6c5ce7", matrixKey: "5" },
+    { name: "BOLT 15", x: 25, y: 125, col: "#d63031", matrixKey: "6" },
   ];
   clientRobots = [];
   for (let i = 0; i < Math.min(count, configs.length); i++) {
@@ -1658,8 +1663,8 @@ function runClientRoam() {
         w.vy = (Math.random() - 0.5) * 18;
         w.nextChange = now + 1500 + Math.random() * 2000;
       }
-      r.x += w.vx * 0.05;
-      r.y += w.vy * 0.05;
+      r.x = Math.max(-80, Math.min(98, r.x + w.vx * 0.05));
+      r.y = Math.max(-30, Math.min(135, r.y + w.vy * 0.05));
       const dist = Math.hypot(r.x - r.homeX, r.y - r.homeY);
       if (dist > 25) {
         w.vx += (r.homeX - r.x) * 0.1;
@@ -1688,8 +1693,8 @@ function runClientDrive() {
     clientRobots.forEach(r => {
       if (r.speed > 0) {
         const rad = (r.heading * Math.PI) / 180;
-        r.x = Math.max(-140, Math.min(140, r.x + Math.sin(rad) * r.speed * dt));
-        r.y = Math.max(-30, Math.min(190, r.y + Math.cos(rad) * r.speed * dt));
+        r.x = Math.max(-80, Math.min(98, r.x + Math.sin(rad) * r.speed * dt));
+        r.y = Math.max(-30, Math.min(135, r.y + Math.cos(rad) * r.speed * dt));
       }
     });
 

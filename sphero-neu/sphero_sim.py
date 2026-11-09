@@ -23,31 +23,33 @@ from spherov2.sphero_edu import SpheroEduAPI
 from spherov2.types import Color
 
 # Physics and arena boundaries (cm)
-ROBOT_DIAMETER = 9.0
-ROBOT_RADIUS = 4.5
-ARENA_MIN_X = -130.0
-ARENA_MAX_X = 130.0
-ARENA_MIN_Y = -35.0
-ARENA_MAX_Y = 175.0
+# Robot circle: 16px radius (32px diameter) at 2.2 px/cm = 14.5 cm visual size.
+# ROBOT_DIAMETER = 15.0 cm ensures zero visual overlap and crisp physical bounce.
+ROBOT_DIAMETER = 15.0
+ROBOT_RADIUS = 7.5
+ARENA_MIN_X = -80.0
+ARENA_MAX_X = 98.0
+ARENA_MIN_Y = -30.0
+ARENA_MAX_Y = 135.0
 
 # Standard simulated robots (names, addresses, initial home coordinates in cm)
-# 15 robots distributed across arena (rows of 3, 6, 6) so they never overlap in standby
+# 15 robots distributed across arena with >= 18 cm spacing so they never overlap in standby
 DEFAULT_ROBOT_SPECS = [
-    ("SB-3FF5", "D4:22:CD:00:3F:F5", -25.0, 30.0, Color(255, 59, 59)),    # 1 Red
-    ("SB-034E", "D4:22:CD:00:03:4E", 0.0, 30.0, Color(46, 204, 113)),     # 2 Green
-    ("SB-61A9", "D4:22:CD:00:61:A9", 25.0, 30.0, Color(52, 152, 219)),    # 3 Blue
-    ("SB-1111", "D4:22:CD:00:11:11", -35.0, 0.0, Color(241, 196, 15)),    # 4 Yellow
-    ("SB-2222", "D4:22:CD:00:22:22", -20.0, 0.0, Color(232, 67, 147)),    # 5 Pink
-    ("SB-3333", "D4:22:CD:00:33:33", -5.0, 0.0, Color(0, 206, 201)),      # 6 Cyan
-    ("SB-4444", "D4:22:CD:00:44:44", 10.0, 0.0, Color(230, 126, 34)),     # 7 Orange
-    ("SB-5555", "D4:22:CD:00:55:55", 25.0, 0.0, Color(255, 255, 255)),    # 8 White
-    ("SB-6666", "D4:22:CD:00:66:66", 40.0, 0.0, Color(155, 89, 182)),     # 9 Purple
-    ("SB-7777", "D4:22:CD:00:77:77", -35.0, -30.0, Color(253, 121, 168)), # 10 Soft Pink
-    ("SB-8888", "D4:22:CD:00:88:88", -20.0, -30.0, Color(9, 132, 227)),   # 11 Ocean Blue
-    ("SB-9999", "D4:22:CD:00:99:99", -5.0, -30.0, Color(0, 184, 148)),    # 12 Mint Green
-    ("SB-AAAA", "D4:22:CD:00:AA:AA", 10.0, -30.0, Color(255, 234, 167)),  # 13 Cream Yellow
-    ("SB-BBBB", "D4:22:CD:00:BB:BB", 25.0, -30.0, Color(108, 92, 231)),   # 14 Violet
-    ("SB-CCCC", "D4:22:CD:00:CC:CC", 40.0, -30.0, Color(214, 48, 49)),    # 15 Crimson
+    ("SB-3FF5", "D4:22:CD:00:3F:F5", 0.0, 0.0, Color(255, 59, 59)),        # 1 Red
+    ("SB-034E", "D4:22:CD:00:03:4E", 18.0, 0.0, Color(46, 204, 113)),     # 2 Green
+    ("SB-61A9", "D4:22:CD:00:61:A9", 36.0, 0.0, Color(52, 152, 219)),     # 3 Blue
+    ("SB-1111", "D4:22:CD:00:11:11", -50.0, 75.0, Color(241, 196, 15)),   # 4 Yellow
+    ("SB-2222", "D4:22:CD:00:22:22", -25.0, 75.0, Color(232, 67, 147)),   # 5 Pink
+    ("SB-3333", "D4:22:CD:00:33:33", 0.0, 75.0, Color(0, 206, 201)),      # 6 Cyan
+    ("SB-4444", "D4:22:CD:00:44:44", 25.0, 75.0, Color(230, 126, 34)),    # 7 Orange
+    ("SB-5555", "D4:22:CD:00:55:55", 50.0, 75.0, Color(255, 255, 255)),   # 8 White
+    ("SB-6666", "D4:22:CD:00:66:66", -50.0, 105.0, Color(155, 89, 182)),  # 9 Purple
+    ("SB-7777", "D4:22:CD:00:77:77", -25.0, 105.0, Color(253, 121, 168)), # 10 Soft Pink
+    ("SB-8888", "D4:22:CD:00:88:88", 0.0, 105.0, Color(9, 132, 227)),    # 11 Ocean Blue
+    ("SB-9999", "D4:22:CD:00:99:99", 25.0, 105.0, Color(0, 184, 148)),   # 12 Mint Green
+    ("SB-AAAA", "D4:22:CD:00:AA:AA", 50.0, 105.0, Color(255, 234, 167)),  # 13 Cream Yellow
+    ("SB-BBBB", "D4:22:CD:00:BB:BB", -25.0, 125.0, Color(108, 92, 231)),  # 14 Violet
+    ("SB-CCCC", "D4:22:CD:00:CC:CC", 25.0, 125.0, Color(214, 48, 49)),    # 15 Crimson
 ]
 
 def hex_color(r, g, b):
@@ -408,11 +410,11 @@ class SimulatorManager:
             # 7 robots in a row left to right (N-E-U-M-A-N-N)
             coords = [(-60.0 + i * 20.0, 25.0) for i in range(7)]
         elif "dance" in prog:
-            # 15 robots in a line
-            coords = [(-70.0 + i * 10.0, 15.0) for i in range(15)]
+            # 15 robots in two clean staggered rows
+            coords = [(-70.0 + i * 20.0, 30.0) for i in range(8)] + [(-60.0 + i * 20.0, 5.0) for i in range(7)]
         elif "roam" in prog:
-            # 15 robots distributed across arena
-            coords = [(-50.0 + (i % 5) * 25.0, 10.0 + (i // 5) * 35.0) for i in range(15)]
+            # 15 robots distributed across arena (5 cols x 3 rows)
+            coords = [(-50.0 + (i % 5) * 25.0, 15.0 + (i // 5) * 35.0) for i in range(15)]
         elif "simon" in prog or "mole" in prog:
             coords = [(-20.0, 40.0), (20.0, 40.0), (-20.0, 10.0), (20.0, 10.0)]
         elif "rps" in prog:
@@ -420,23 +422,25 @@ class SimulatorManager:
         elif "potato" in prog:
             coords = [(0.0, 25.0)]
         elif "drive" in prog:
-            coords = [(-25.0, 30.0), (0.0, 30.0), (25.0, 30.0)]
+            coords = [(0.0, 0.0), (18.0, 0.0), (36.0, 0.0)]
         else:
             coords = [(spec[2], spec[3]) for spec in DEFAULT_ROBOT_SPECS]
 
         with self.lock:
             canonical_names = [spec[0] for spec in DEFAULT_ROBOT_SPECS]
-            for idx, (hx, hy) in enumerate(coords):
-                if idx < len(canonical_names):
-                    cname = canonical_names[idx]
-                    if cname in self.toys:
-                        toy = self.toys[cname]
-                        toy.home_x, toy.home_y = hx, hy
-                        toy.x, toy.y = hx, hy
-                        toy.locator_origin_x, toy.locator_origin_y = hx, hy
-                        toy.heading = 0.0
-                        toy.speed = 0.0
-                        toy.target_speed = 0.0
+            for idx, cname in enumerate(canonical_names):
+                if idx < len(coords):
+                    hx, hy = coords[idx]
+                else:
+                    hx, hy = DEFAULT_ROBOT_SPECS[idx][2], DEFAULT_ROBOT_SPECS[idx][3]
+                if cname in self.toys:
+                    toy = self.toys[cname]
+                    toy.home_x, toy.home_y = hx, hy
+                    toy.x, toy.y = hx, hy
+                    toy.locator_origin_x, toy.locator_origin_y = hx, hy
+                    toy.heading = 0.0
+                    toy.speed = 0.0
+                    toy.target_speed = 0.0
 
     def get_toy(self, name):
         name_clean = (name or "BOLT-1").strip().upper()
@@ -479,8 +483,13 @@ class SimulatorManager:
         return res
 
     def _physics_loop(self):
-        dt = 0.04  # 25 Hz
+        dt = 0.02  # 50 Hz physics for responsive collision response
         last_emit = 0.0
+
+        min_x = ARENA_MIN_X + ROBOT_RADIUS
+        max_x = ARENA_MAX_X - ROBOT_RADIUS
+        min_y = ARENA_MIN_Y + ROBOT_RADIUS
+        max_y = ARENA_MAX_Y - ROBOT_RADIUS
 
         while self.running:
             t0 = time.monotonic()
@@ -500,30 +509,43 @@ class SimulatorManager:
                         toy.x += dist * math.sin(rad)
                         toy.y += dist * math.cos(rad)
 
-                    # Arena boundary collision & bounce
-                    bounced = False
-                    if toy.x < ARENA_MIN_X + ROBOT_RADIUS:
-                        toy.x = ARENA_MIN_X + ROBOT_RADIUS
-                        bounced = True
-                    elif toy.x > ARENA_MAX_X - ROBOT_RADIUS:
-                        toy.x = ARENA_MAX_X - ROBOT_RADIUS
-                        bounced = True
+                    # Arena boundary collision & reflection
+                    bounced_x = False
+                    bounced_y = False
+                    if toy.x <= min_x:
+                        toy.x = min_x
+                        bounced_x = True
+                    elif toy.x >= max_x:
+                        toy.x = max_x
+                        bounced_x = True
 
-                    if toy.y < ARENA_MIN_Y + ROBOT_RADIUS:
-                        toy.y = ARENA_MIN_Y + ROBOT_RADIUS
-                        bounced = True
-                    elif toy.y > ARENA_MAX_Y - ROBOT_RADIUS:
-                        toy.y = ARENA_MAX_Y - ROBOT_RADIUS
-                        bounced = True
+                    if toy.y <= min_y:
+                        toy.y = min_y
+                        bounced_y = True
+                    elif toy.y >= max_y:
+                        toy.y = max_y
+                        bounced_y = True
 
-                    if bounced and toy.speed > 5:
-                        toy.heading = (toy.heading + 180 + (random.random() - 0.5) * 40) % 360
+                    if (bounced_x or bounced_y) and toy.speed > 3:
+                        rad = math.radians(toy.heading)
+                        vx = math.sin(rad)
+                        vy = math.cos(rad)
+                        if bounced_x:
+                            vx = -vx
+                        if bounced_y:
+                            vy = -vy
+                        # Add slight jitter to prevent infinite dead-on bouncing
+                        jitter = math.radians((random.random() - 0.5) * 20)
+                        cos_j, sin_j = math.cos(jitter), math.sin(jitter)
+                        new_vx = vx * cos_j - vy * sin_j
+                        new_vy = vx * sin_j + vy * cos_j
+                        toy.heading = math.degrees(math.atan2(new_vx, new_vy)) % 360
                         toy.trigger_shake(0.3)
                         toy._notify_collision()
 
                 # Robot-robot pairwise collisions (prevent overlapping / hovering)
                 min_dist = ROBOT_DIAMETER
-                for iter_idx in range(2):
+                for iter_idx in range(3):
                     for i in range(len(active_list)):
                         toy_a = active_list[i]
                         for j in range(i + 1, len(active_list)):
@@ -549,6 +571,12 @@ class SimulatorManager:
                                 toy_b.x += nx * overlap * 0.5
                                 toy_b.y += ny * overlap * 0.5
 
+                                # Keep strictly inside arena bounds after separation
+                                toy_a.x = max(min_x, min(max_x, toy_a.x))
+                                toy_a.y = max(min_y, min(max_y, toy_a.y))
+                                toy_b.x = max(min_x, min(max_x, toy_b.x))
+                                toy_b.y = max(min_y, min(max_y, toy_b.y))
+
                                 if iter_idx == 0:
                                     va_x = toy_a.speed * 0.625 * math.sin(math.radians(toy_a.heading))
                                     va_y = toy_a.speed * 0.625 * math.cos(math.radians(toy_a.heading))
@@ -558,7 +586,7 @@ class SimulatorManager:
                                     v_rel = (vb_x - va_x) * nx + (vb_y - va_y) * ny
                                     if v_rel < 0:
                                         # Approaching: elastic collision response
-                                        restitution = 0.85
+                                        restitution = 0.90
                                         impulse = -(1.0 + restitution) * v_rel * 0.5
                                         va_x -= impulse * nx
                                         va_y -= impulse * ny
@@ -584,14 +612,14 @@ class SimulatorManager:
                                     toy_a._notify_collision()
                                     toy_b._notify_collision()
 
-            # Telemetry broadcast every ~50ms
+            # Telemetry broadcast at ~30 Hz for smooth streaming
             now = time.monotonic()
-            if now - last_emit >= 0.05 and self.active_toys:
+            if now - last_emit >= 0.033 and self.active_toys:
                 self._emit_telemetry()
                 last_emit = now
 
             elapsed = time.monotonic() - t0
-            sleep_time = max(0.005, dt - elapsed)
+            sleep_time = max(0.002, dt - elapsed)
             time.sleep(sleep_time)
 
     def _emit_telemetry(self):
