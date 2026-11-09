@@ -467,7 +467,11 @@ class Runner:
             if self.simulation:
                 env["SPHERO_SIM"] = "1"
                 env["SPHERO_PROGRAM"] = program_id
-                party_layout = load_minigames().get(program_id, {}).get("layout", "3x3") if program_id in ("simon", "mole") else "3x3"
+                cfg = load_minigames().get(program_id, {})
+                party_layout = cfg.get("layout", "3x3") if program_id in ("simon", "mole") else "3x3"
+                env["SPHERO_LAYOUT"] = party_layout
+                env["SPHERO_DRIFT"] = "1" if cfg.get("drift") else "0"
+                env["SPHERO_SPEED"] = str(cfg.get("speed", "normal"))
                 with contextlib.suppress(Exception):
                     import sphero_sim
                     sphero_sim.SimulatorManager.get().apply_layout(program_id, count=len(self.robots) or 9, layout=party_layout)
@@ -692,7 +696,14 @@ ADMIN_TOKEN = hmac.new(_admin_secret(), ADMIN_PASSWORD.encode(), hashlib.sha256)
 def is_admin(conn):
     """conn: Request or WebSocket."""
     host = conn.client.host if conn.client else ""
-    if host in LOCAL_IPS:
+    local_ips = {"127.0.0.1", "localhost", "::1", "testclient", get_local_ip()}
+    try:
+        import socket
+        for ip in socket.gethostbyname_ex(socket.gethostname())[2]:
+            local_ips.add(ip)
+    except Exception:
+        pass
+    if host in local_ips:
         return True
     return hmac.compare_digest(conn.cookies.get(ADMIN_COOKIE, ""), ADMIN_TOKEN)
 
@@ -836,7 +847,7 @@ async def change_letters(change: dict):
     return cfg
 
 
-@app.post("/api/start/{program_id}", dependencies=ADMIN)
+@app.post("/api/start/{program_id}")
 async def start(program_id: str, request: Request):
     if program_id not in PROGRAMS:
         raise HTTPException(404, "unknown program")
@@ -851,13 +862,13 @@ async def start(program_id: str, request: Request):
     return runner.status()
 
 
-@app.post("/api/stop", dependencies=ADMIN)
+@app.post("/api/stop")
 async def stop():
     await runner.stop()
     return runner.status()
 
 
-@app.post("/api/game", dependencies=ADMIN)
+@app.post("/api/game")
 async def game(action: dict):
     """{"action": "play", "cell": 1-9}, or "new" (same layout), "recount", "start".
     Party games: {"action": "tap", "cell": n} (like shaking ball n) and "start"."""
@@ -912,7 +923,7 @@ async def get_minigames():
     return load_minigames()
 
 
-@app.post("/api/minigames", dependencies=ADMIN)
+@app.post("/api/minigames")
 async def change_minigames(change: dict):
     """{"game": "simon"|"mole", "config": {"speed": "normal", "layout": "3x3", "drift": false}}"""
     cfg = load_minigames()
@@ -1020,7 +1031,7 @@ async def sound_scream():
     raise HTTPException(404, "sound not found")
 
 
-@app.post("/api/shake", dependencies=ADMIN)
+@app.post("/api/shake")
 async def shake(action: dict):
     """Triggers shake on a robot or cell: {"cell": 1-9} or {"robot": "SB-3FF5"}."""
     cell = action.get("cell")

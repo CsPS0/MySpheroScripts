@@ -2035,7 +2035,7 @@ function triggerClientDrift() {
   const game = selectedGame;
   const cfg = partyConfig && partyConfig[game];
   if (!cfg || !cfg.drift || !clientRobots || !clientRobots.length) return;
-  const steps = 12;
+  const steps = 18;
   let step = 0;
   const deltas = clientRobots.map(r => {
     let angle = Math.random() * Math.PI * 2;
@@ -2044,7 +2044,7 @@ function triggerClientDrift() {
     if (Math.hypot(dx, dy) > 35) {
       angle = Math.atan2(dx, dy) + (Math.random() - 0.5) * 0.8;
     }
-    const dist = (5.0 + Math.random() * 5.0) / steps;
+    const dist = (10.0 + Math.random() * 8.0) / steps;
     return {
       dx: Math.sin(angle) * dist,
       dy: Math.cos(angle) * dist,
@@ -2058,7 +2058,7 @@ function triggerClientDrift() {
       r.x += deltas[i].dx;
       r.y += deltas[i].dy;
       r.heading = deltas[i].heading;
-      r.speed = 18;
+      r.speed = 24;
     });
     resolveRobotCollisions(clientRobots);
     updateTelemetry({ robots: clientRobots });
@@ -2067,7 +2067,7 @@ function triggerClientDrift() {
       clientRobots.forEach(r => r.speed = 0);
       updateTelemetry({ robots: clientRobots });
     }
-  }, 28);
+  }, 25);
 }
 
 function runClientMole() {
