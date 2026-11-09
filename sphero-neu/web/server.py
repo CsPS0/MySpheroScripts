@@ -731,7 +731,16 @@ async def lifespan(app):
     await runner.stop()        # container stop: let the program stop the robots
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, docs_url="/api/swagger")
+
+
+@app.middleware("http")
+async def no_cache_static_assets(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
 
 if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
@@ -750,6 +759,17 @@ def get_index_file():
     return None
 
 
+def get_doc_file(filename: str):
+    candidates = [
+        PROJECT_ROOT / filename,
+        ROOT / filename,
+    ]
+    for doc in candidates:
+        if doc.exists():
+            return doc
+    return None
+
+
 @app.get("/")
 @app.get("/index.html")
 async def index():
@@ -764,6 +784,75 @@ async def index():
             },
         )
     raise HTTPException(404, "index.html not found")
+
+
+@app.get("/docs", include_in_schema=False)
+@app.get("/docs/", include_in_schema=False)
+@app.get("/guide", include_in_schema=False)
+@app.get("/guide/", include_in_schema=False)
+async def redirect_docs():
+    return RedirectResponse(url="/?tab=docs#docs", status_code=302)
+
+
+@app.get("/README.md", include_in_schema=False)
+@app.get("/readme", include_in_schema=False)
+async def serve_readme():
+    doc = get_doc_file("README.md")
+    if doc:
+        return FileResponse(
+            doc,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+    raise HTTPException(404, "README.md not found")
+
+
+@app.get("/USAGE.md", include_in_schema=False)
+@app.get("/usage", include_in_schema=False)
+async def serve_usage():
+    doc = get_doc_file("USAGE.md")
+    if doc:
+        return FileResponse(
+            doc,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+    raise HTTPException(404, "USAGE.md not found")
+
+
+@app.get("/api/docs")
+async def api_docs():
+    readme_file = get_doc_file("README.md")
+    usage_file = get_doc_file("USAGE.md")
+    return {
+        "readme": readme_file.read_text(encoding="utf-8") if readme_file else "",
+        "usage": usage_file.read_text(encoding="utf-8") if usage_file else "",
+    }
+
+
+@app.get("/api/download-zip")
+async def download_local_zip():
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    skip_dirs = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules"}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in PROJECT_ROOT.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(PROJECT_ROOT)
+            if any(part in skip_dirs for part in rel.parts):
+                continue
+            zf.write(path, arcname=str(Path("MySpheroScripts") / rel))
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="MySpheroScripts.zip"',
+            "Cache-Control": "no-cache",
+        },
+    )
 
 
 @app.get("/en")
