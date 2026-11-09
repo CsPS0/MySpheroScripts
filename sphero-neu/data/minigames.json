@@ -1,0 +1,12 @@
+{
+  "simon": {
+    "speed": "normal",
+    "layout": "3x3",
+    "drift": false
+  },
+  "mole": {
+    "speed": "normal",
+    "layout": "3x3",
+    "drift": false
+  }
+}

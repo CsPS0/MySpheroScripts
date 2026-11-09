@@ -830,9 +830,16 @@ async def change_letters(change: dict):
 
 
 @app.post("/api/start/{program_id}", dependencies=ADMIN)
-async def start(program_id: str):
+async def start(program_id: str, request: Request):
     if program_id not in PROGRAMS:
         raise HTTPException(404, "unknown program")
+    with contextlib.suppress(Exception):
+        body = await request.json()
+        if body and isinstance(body, dict) and program_id in ("simon", "mole"):
+            cfg = load_minigames()
+            cfg[program_id].update(body)
+            MINIGAMES_CONFIG.parent.mkdir(exist_ok=True)
+            MINIGAMES_CONFIG.write_text(json.dumps(cfg, indent=2))
     await runner.start(program_id)
     return runner.status()
 
@@ -850,6 +857,13 @@ async def game(action: dict):
     if action.get("action") in ("play", "tap"):
         await runner.send_line(f"{action['action']} {int(action['cell'])}\n", "game")
     elif action.get("action") in ("new", "recount", "start"):
+        cfg_update = action.get("config")
+        if cfg_update and runner.program in ("simon", "mole"):
+            cfg = load_minigames()
+            cfg[runner.program].update(cfg_update)
+            MINIGAMES_CONFIG.parent.mkdir(exist_ok=True)
+            MINIGAMES_CONFIG.write_text(json.dumps(cfg, indent=2))
+            await runner.send_line("config " + json.dumps(cfg[runner.program]) + "\n", "game")
         await runner.send_line(action["action"] + "\n", "game")
     else:
         raise HTTPException(400, "unknown action")

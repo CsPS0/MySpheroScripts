@@ -51,15 +51,30 @@ MINIGAMES_CONFIG_FILE = pathlib.Path(__file__).resolve().parent / "data" / "mini
 
 
 def load_minigames_config(game_id):
-    defaults = {"speed": "normal", "layout": "3x3", "drift": False}
     try:
         if MINIGAMES_CONFIG_FILE.exists():
             data = json.loads(MINIGAMES_CONFIG_FILE.read_text())
-            if game_id in data and isinstance(data[game_id], dict):
-                defaults.update(data[game_id])
+            if isinstance(data, dict) and game_id in data and isinstance(data[game_id], dict):
+                return dict(data[game_id])
     except Exception:
         pass
-    return defaults
+    return {}
+
+
+def save_minigames_config(game_id, config):
+    try:
+        data = {}
+        if MINIGAMES_CONFIG_FILE.exists():
+            with contextlib.suppress(Exception):
+                data = json.loads(MINIGAMES_CONFIG_FILE.read_text())
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault(game_id, {})
+        data[game_id].update(config)
+        MINIGAMES_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        MINIGAMES_CONFIG_FILE.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass
 
 WHITE = Color(255, 255, 255)
 RED = Color(255, 0, 0)
@@ -233,6 +248,17 @@ class Simon(Party):
         self.say(text)
 
     def start(self):
+        minigames_cfg = load_minigames_config(self.id)
+        if "speed" in minigames_cfg:
+            self.speed = str(minigames_cfg["speed"]).lower()
+        if "layout" in minigames_cfg:
+            self.layout = str(minigames_cfg["layout"]).lower()
+        if "drift" in minigames_cfg:
+            self.drift = bool(minigames_cfg["drift"])
+        if sphero_ble.is_simulation():
+            with contextlib.suppress(Exception):
+                import sphero_sim
+                sphero_sim.SimulatorManager.get().apply_layout(self.id, layout=self.layout)
         self.seq = []
         self.extend(time.monotonic())
         return True
@@ -325,6 +351,17 @@ class Mole(Party):
         self.say(text)
 
     def start(self):
+        minigames_cfg = load_minigames_config(self.id)
+        if "speed" in minigames_cfg:
+            self.speed = str(minigames_cfg["speed"]).lower()
+        if "layout" in minigames_cfg:
+            self.layout = str(minigames_cfg["layout"]).lower()
+        if "drift" in minigames_cfg:
+            self.drift = bool(minigames_cfg["drift"])
+        if sphero_ble.is_simulation():
+            with contextlib.suppress(Exception):
+                import sphero_sim
+                sphero_sim.SimulatorManager.get().apply_layout(self.id, layout=self.layout)
         now = time.monotonic()
         self.phase, self.score, self.misses = "play", 0, 0
         self.started, self.mole, self.last, self.next_at = now, None, None, now + 1.5
@@ -732,6 +769,11 @@ def main():
                         if "drift" in new:
                             cfg["drift"] = bool(new["drift"])
                             game.drift = cfg["drift"]
+                        save_minigames_config(game_arg, {
+                            "speed": getattr(game, "speed", "normal"),
+                            "layout": getattr(game, "layout", "3x3"),
+                            "drift": getattr(game, "drift", False)
+                        })
                         changed = True
                 changed |= bool(game.tick(time.monotonic()))
                 if changed:
