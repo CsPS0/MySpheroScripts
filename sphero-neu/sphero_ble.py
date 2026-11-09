@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -29,7 +30,7 @@ from spherov2 import scanner
 SCAN_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 30.0
 ATTEMPTS = 3
-BOLTS_CACHE_FILE = Path("/tmp/sphero_bolts_cache.json")
+BOLTS_CACHE_FILE = Path(tempfile.gettempdir()) / "sphero_bolts_cache.json"
 
 
 def load_cached_bolts():
@@ -96,11 +97,25 @@ def release_stale(prefix="SB-", log=print):
 
 
 def list_adapters():
-    """Bluetooth adapters on this machine, for example ["hci0", "hci1"]."""
-    if not sys.platform.startswith("linux"):
-        return []
-    names = [p.name for p in Path("/sys/class/bluetooth").glob("hci*")]
-    return sorted((n for n in names if re.fullmatch(r"hci\d+", n)), key=lambda n: int(n[3:]))
+    """Bluetooth adapters on this machine, for example ["hci0", "hci1"].
+    On Linux: lists hci* adapters from /sys/class/bluetooth.
+    On Windows/macOS: returns ["default"] because Bleak operates via the system BLE stack.
+    """
+    if sys.platform.startswith("linux"):
+        names = [p.name for p in Path("/sys/class/bluetooth").glob("hci*")]
+        return sorted((n for n in names if re.fullmatch(r"hci\d+", n)), key=lambda n: int(n[3:]))
+    elif sys.platform in ("win32", "darwin"):
+        return ["default"]
+    return []
+
+
+def has_bluetooth_adapter():
+    """Checks whether Bluetooth hardware is present and available."""
+    if sys.platform.startswith("linux"):
+        return bool(list_adapters())
+    elif sys.platform in ("win32", "darwin"):
+        return True
+    return False
 
 
 class BleakAdapter:
@@ -130,13 +145,16 @@ class BleakAdapter:
             raise
 
     async def _connect(self, address):
-        bluez = {"adapter": self.BLUEZ_ADAPTER} if self.BLUEZ_ADAPTER else {}
+        bluez = {"adapter": self.BLUEZ_ADAPTER} if (sys.platform.startswith("linux") and self.BLUEZ_ADAPTER) else {}
+        scanner_kwargs = {"bluez": bluez} if bluez else {}
+        client_kwargs = {"bluez": bluez} if bluez else {}
+
         device = await bleak.BleakScanner.find_device_by_address(
-            address, timeout=SCAN_TIMEOUT, bluez=bluez)
+            address, timeout=SCAN_TIMEOUT, **scanner_kwargs)
         if device is None:
             raise bleak.exc.BleakDeviceNotFoundError(
                 address, f"{address} not seen within {SCAN_TIMEOUT:.0f} s")
-        client = bleak.BleakClient(device, timeout=CONNECT_TIMEOUT, bluez=bluez)
+        client = bleak.BleakClient(device, timeout=CONNECT_TIMEOUT, **client_kwargs)
         await client.connect()
         return client
 
@@ -164,7 +182,7 @@ class BleakAdapter:
 
 def adapter_class(adapter=None):
     """BleakAdapter that connects through Bluetooth adapter `adapter` ("hci1")."""
-    if adapter is None:
+    if adapter is None or adapter in ("default", "system"):
         return BleakAdapter
     return type(f"BleakAdapter_{adapter}", (BleakAdapter,), {"BLUEZ_ADAPTER": adapter})
 

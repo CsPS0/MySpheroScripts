@@ -168,8 +168,9 @@ class Runner:
         self.auto_map_on_connect = True # auto switch/focus map on laptop screen when phone connects
         # real robots by default; SPHERO_SIM=1 forces simulation, no Bluetooth adapter implies it
         self.simulation = os.environ.get("SPHERO_SIM", "0").lower() in ("1", "true", "yes")
-        if not sphero_ble.list_adapters():
+        if not sphero_ble.has_bluetooth_adapter():
             self.simulation = True
+        self.low_spec = os.environ.get("LOW_SPEC", "0").lower() in ("1", "true", "yes")
         self.lock = asyncio.Lock()
         self.identify_lock = asyncio.Lock()
         # robot number -> forward heading (degrees) for Drive, see drive_keys.Driven.
@@ -212,10 +213,22 @@ class Runner:
                                                     toy.get_battery_voltage()))
             else:
                 found = await asyncio.to_thread(sphero_ble.scan_bolts, 4.0)
+                if sphero_ble.is_simulation():
+                    self.simulation = True
                 for number, item in enumerate(found, start=1):
                     robots.append(self._robot_entry(number, item[0], item[1]))
         except Exception as e:
             await self.add_line(f"Robot keresési hiba / scan error: {e}")
+            if not self.simulation:
+                self.simulation = True
+                sphero_ble.set_simulation(True)
+                with contextlib.suppress(Exception):
+                    import sphero_sim
+                    sim = sphero_sim.SimulatorManager.get()
+                    for number, spec in enumerate(sphero_sim.DEFAULT_ROBOT_SPECS, start=1):
+                        toy = sim.get_toy(spec[0])
+                        robots.append(self._robot_entry(number, toy.name, toy.address,
+                                                        toy.get_battery_voltage()))
 
         for r in robots:
             cache_map[r["raw_name"]] = r["address"]
@@ -406,6 +419,7 @@ class Runner:
             "started": self.started,
             "last_exit": self.last_exit,
             "simulation": self.simulation,
+            "low_spec": self.low_spec,
         }
 
     def get_current_telemetry(self):
@@ -453,8 +467,13 @@ class Runner:
             if self.simulation:
                 env["SPHERO_SIM"] = "1"
 
-            venv_py = ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-            python_exec = str(venv_py) if venv_py.exists() else sys.executable
+            venv_sub = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+            if (ROOT / ".venv" / venv_sub).exists():
+                python_exec = str(ROOT / ".venv" / venv_sub)
+            elif (PROJECT_ROOT / ".venv" / venv_sub).exists():
+                python_exec = str(PROJECT_ROOT / ".venv" / venv_sub)
+            else:
+                python_exec = sys.executable
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
             start_new_session = (sys.platform != "win32")
 
@@ -611,15 +630,27 @@ def identify_bolt(raw_name, number, col, seconds=3.0):
 
 
 def get_local_ip():
+    env_ip = os.environ.get("SPHERO_HOST_IP")
+    if env_ip:
+        return env_ip
     import socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        return ip
+        if ip and not ip.startswith("127."):
+            return ip
     except Exception:
-        return "127.0.0.1"
+        pass
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if not ip.startswith("127.") and not ip.startswith("169.254."):
+                return ip
+    except Exception:
+        pass
+    return "127.0.0.1"
 
 
 # --- Admin access -----------------------------------------------------------
@@ -948,6 +979,13 @@ async def set_auto_map_endpoint(data: dict):
     return {"ok": True, "auto_map": runner.auto_map_on_connect}
 
 
+@app.post("/api/settings/low-power", dependencies=ADMIN)
+async def set_low_power_endpoint(data: dict):
+    runner.low_spec = bool(data.get("enabled", True))
+    await runner.broadcast({"type": "settings", "low_spec": runner.low_spec})
+    return {"ok": True, "low_spec": runner.low_spec}
+
+
 @app.get("/api/admin/status")
 async def admin_status(request: Request):
     host = request.client.host if request.client else ""
@@ -1019,7 +1057,7 @@ async def websocket(ws: WebSocket):
         "robot_name": slot_info.get("robot_name") if slot_info else None,
         "remote_admin": role == "host" and client_ip not in LOCAL_IPS,
     })
-    await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect})
+    await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect, "low_spec": runner.low_spec})
     await ws.send_json({"type": "calibration", "offsets": runner.calibration})
     await ws.send_json({"type": "dance", "config": load_dance()})
     await runner.broadcast_clients()
@@ -1088,12 +1126,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sphero Web Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host interface (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
+    parser.add_argument("--sim", "--simulate", action="store_true", help="Force simulation mode without physical robots")
+    parser.add_argument("--low-power", "--low-spec", action="store_true", help="Enable optimizations for low-level / low-spec hardware")
+    parser.add_argument("--host-ip", help="Override local IP address reported to mobile clients")
     parser.add_argument("--max-controllers", type=int, default=3, help="Max simultaneous mobile controllers (default: 3)")
     parser.add_argument("--idle-timeout", type=int, default=300, help="Controller inactivity timeout in seconds (default: 300)")
     parser.add_argument("--ssl", action="store_true", help="Enable HTTPS using SSL certificates")
     parser.add_argument("--ssl-cert", default=default_cert, help="SSL certificate file path")
     parser.add_argument("--ssl-key", default=default_key, help="SSL key file path")
     args = parser.parse_args()
+
+    if args.sim:
+        runner.simulation = True
+        sphero_ble.set_simulation(True)
+
+    if args.low_power:
+        runner.low_spec = True
+        runner.log = collections.deque(maxlen=500)
+
+    if args.host_ip:
+        os.environ["SPHERO_HOST_IP"] = args.host_ip
 
     runner.max_controllers = args.max_controllers
     runner.idle_timeout = args.idle_timeout

@@ -2,8 +2,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Hardware](https://img.shields.io/badge/Hardware-Sphero%20BOLT-00A4E4?logo=bluetooth&logoColor=white)](https://sphero.com/)
+[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Raspberry%20Pi-blue)](https://github.com/)
 [![Hosting](https://img.shields.io/badge/Hosting-GitHub%20Pages%20%7C%20Vercel-black?logo=github&logoColor=white)](https://pages.github.com/)
-[![OS](https://img.shields.io/badge/OS-Arch%20Linux%20Verified-1793d1?logo=archlinux&logoColor=white)](https://archlinux.org/)
 [![Language](https://img.shields.io/badge/Language-Magyar%20(HU)%20%7C%20English-success)](#)
 [![Control](https://img.shields.io/badge/Max%20Controllers-3%20Devices%20%7C%205m%20Watchdog-blue)](#)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -21,10 +21,13 @@ Featuring a **unified single-page dashboard**, **startup robot fleet pool with r
 4. [Device Slots & Inactivity Management (3 Devices, 5 Min Timeout)](#device-slots--inactivity-management-3-devices-5-min-timeout)
 5. [Full "NEUMANN" School Formation](#full-neumann-school-formation)
 6. [Bilingual Support (Hungarian Default, English Backup)](#bilingual-support-hungarian-default-english-backup)
-7. [Running on Arch Linux (Step-by-Step)](#running-on-arch-linux-step-by-step)
-8. [Network & Firewall Configuration](#network--firewall-configuration)
-9. [Hosting on GitHub Pages (Standalone Mode)](#hosting-on-github-pages-standalone-mode)
-10. [School Presentation Playbook (Ages 10–14)](#school-presentation-playbook-ages-1014)
+7. [Running on Windows (Step-by-Step)](#running-on-windows-step-by-step)
+8. [Running on macOS (Step-by-Step)](#running-on-macos-step-by-step)
+9. [Running on Low-Level Hardware & Raspberry Pi](#running-on-low-level-hardware--raspberry-pi)
+10. [Running on Linux (Arch / Ubuntu / Debian)](#running-on-linux-arch--ubuntu--debian)
+11. [Network & Firewall Configuration](#network--firewall-configuration)
+12. [Hosting on GitHub Pages (Standalone Mode)](#hosting-on-github-pages-standalone-mode)
+13. [School Presentation Playbook (Ages 10–14)](#school-presentation-playbook-ages-1014)
 
 ---
 
@@ -160,14 +163,101 @@ To maintain order and ensure every visiting student gets a turn:
 
 ---
 
-## Running on Arch Linux (Step-by-Step)
+## Running on Windows (Step-by-Step)
 
-[![Arch Linux](https://img.shields.io/badge/Arch%20Linux-Pacman%20%7C%20BlueZ-1793d1?logo=archlinux&logoColor=white)](https://archlinux.org/)
+[![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011%20Supported-0078D6?logo=windows&logoColor=white)](https://microsoft.com/windows)
+
+### 1. Prerequisites
+- **Python 3.10+**: Download from [python.org](https://www.python.org/downloads/) or the Microsoft Store. Ensure **"Add Python to PATH"** is checked during installation.
+- **Bluetooth**: Ensure Bluetooth is turned **ON** in Windows Settings (`Settings > Bluetooth & devices > Bluetooth`).
+
+### 2. Set Up Virtual Environment (First time)
+Open PowerShell or Command Prompt in the repository folder:
+```cmd
+cd sphero-neu
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+```
+
+### 3. Launch the Server
+Double-click `start.bat` in the project root, or run in PowerShell:
+```powershell
+.\start.ps1
+```
+*Tip: To test without physical robots, launch in simulation mode:*
+```powershell
+.\start.ps1 --sim
+```
+When Windows Defender Firewall prompts on first launch, allow access for Private networks.
+
+---
+
+## Running on macOS (Step-by-Step)
+
+[![macOS](https://img.shields.io/badge/macOS-Intel%20%26%20Apple%20Silicon-000000?logo=apple&logoColor=white)](https://apple.com/macos)
+
+### 1. Prerequisites
+- **Python 3.10+**: Install via [Homebrew](https://brew.sh/) (`brew install python`) or the official macOS installer from [python.org](https://www.python.org/downloads/).
+- **Bluetooth Permissions**: macOS requires permission for Terminal/iTerm to use Bluetooth:
+  - Open `System Settings > Privacy & Security > Bluetooth`.
+  - Ensure your terminal app (Terminal, iTerm2, or VS Code) has Bluetooth access enabled.
+
+### 2. Set Up Virtual Environment (First time)
+```bash
+cd sphero-neu
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Launch the Server
+From the repository root:
+```bash
+./start.sh
+```
+*Or force simulation mode:*
+```bash
+./start.sh --sim
+```
+
+---
+
+## Running on Low-Level Hardware & Raspberry Pi
+
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Pi%203%20%7C%204%20%7C%20Zero%202W-C51A4A?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/)
+[![Low Spec](https://img.shields.io/badge/Optimization-Eco%20Mode%20%7C%20Low%20RAM-brightgreen)](#)
+
+Optimized specifically for school environments running on older laptops (e.g. 2–4 GB RAM, dual-core Celeron/Atom netbooks, Intel HD Graphics) or single-board computers like **Raspberry Pi 3/4 / Zero 2W**:
+
+### 1. Lightweight Server Mode
+Start the server with the `--low-power` flag to automatically optimize memory buffers and stream throttling:
+```bash
+./start.sh --low-power
+```
+*(Or set `LOW_SPEC=1` in your environment).*
+
+### 2. Built-in Client Eco Mode (Kímélő mód)
+- **Automatic Off-Screen Suspension**: When the 2D floor arena map is hidden or the browser tab is minimized, canvas physics and drawing loops pause immediately to free up 100% of GPU/CPU resources.
+- **Eco Mode Toggle**: In **Admin Settings (Fogaskerék / Beállítások)**, enable **"Kímélő mód (alacsony teljesítményű gépekhez)"**:
+  - Disables GPU-intensive HTML5 canvas blur filters (`shadowBlur`).
+  - Limits frame rate to an efficient 25 FPS instead of uncapped 60/120 FPS.
+  - Shortens trail render paths to save memory and CPU cycles.
+
+---
+
+## Running on Linux (Arch / Ubuntu / Debian)
+
+[![Linux](https://img.shields.io/badge/Linux-Arch%20%7C%20Ubuntu%20%7C%20Debian-FCC624?logo=linux&logoColor=black)](https://kernel.org/)
 
 ### 1. Install System Dependencies
-```bash
-sudo pacman -Syu --needed python python-pip bluez bluez-utils
-```
+- **Arch Linux**:
+  ```bash
+  sudo pacman -Syu --needed python python-pip bluez bluez-utils
+  ```
+- **Ubuntu / Debian / Raspberry Pi OS**:
+  ```bash
+  sudo apt update && sudo apt install -y python3 python3-venv python3-pip bluez
+  ```
 
 ### 2. Enable & Start Bluetooth Service
 ```bash
@@ -176,17 +266,14 @@ rfkill unblock bluetooth
 bluetoothctl power on
 ```
 
-### 3. Set Up Virtual Environment
+### 3. Set Up Virtual Environment & Run
 ```bash
 cd ~/MySpheroScripts/sphero-neu
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt fastapi "uvicorn[standard]"
-```
-
-### 4. Launch the Server
-```bash
-python web/server.py --host 0.0.0.0 --port 8080
+pip install -r requirements.txt
+cd ..
+./start.sh
 ```
 
 - Open `http://localhost:8080` on the laptop monitor.

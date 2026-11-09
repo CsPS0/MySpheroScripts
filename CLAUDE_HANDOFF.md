@@ -2,9 +2,12 @@
 
 ## 1. Project Context & Environment
 - **Repository Root**: `/home/csps/REPOS/MySpheroScripts`
-- **Environment**: Arch Linux with BlueZ BLE stack, Python 3.14 virtual environment (`sphero-neu/.venv`).
-- **Server Startup**: `./start.sh` from the repository root (or `cd sphero-neu && .venv/bin/python web/server.py --host 0.0.0.0 --port 8080`).
-  Uses the real robots by default. `SPHERO_SIM=1` forces simulation (9 simulated BOLTs); without a Bluetooth adapter it simulates automatically.
+- **Environment**: Cross-platform (Windows 10/11, macOS Intel & Apple Silicon, Linux with BlueZ, Raspberry Pi OS). Python 3.10+ virtual environment (`sphero-neu/.venv`).
+- **Server Startup**:
+  - Linux / macOS: `./start.sh` (or `python3 web/server.py --host 0.0.0.0 --port 8080`)
+  - Windows: `start.bat` or `.\start.ps1`
+  - Real robots by default. `--sim` (or `SPHERO_SIM=1`) forces simulation (9 simulated BOLTs); without a Bluetooth adapter it simulates automatically.
+  - `--low-power` (or `LOW_SPEC=1`) enables optimizations for low-level / low-spec school hardware.
 - **Frontend Files**: `index.html`, `assets/css/styles.css`, `assets/js/app.js`.
   Any change to these root files must be copied to `sphero-neu/web/static/` (the copies must stay identical).
 - **Hardware**: 15 physical Sphero BOLT robots.
@@ -57,6 +60,19 @@ Phone 2 → robot 2, green `#2ecc71`; Phone 3 → robot 3, blue `#3498db`), auto
 - Emojis were removed from the UI and from the server log messages.
 - **Programs connected to random robots**: `find_toy("BOLT-n")` passed the cached address as a toy *name*, which never matched, then grabbed any free BOLT after a 15 s scan. It now resolves `BOLT-n` to the robot's `SB-xxxx` name from the cache and scans for exactly that robot. Neumann connect time went from 64 s to 23 s, on the right robots.
 - **`./start.sh` always ran in simulation** (server default `SPHERO_SIM=1`). Real hardware is now the default.
+- **Cross-platform support (Windows & macOS)**:
+  - Added `start.bat` for Windows CMD and `start.ps1` for Windows PowerShell; made `start.sh` POSIX-compatible for Linux/macOS.
+  - Replaced hardcoded `/tmp` with `tempfile.gettempdir()` for `sphero_bolts_cache.json`.
+  - Updated `sphero_ble.list_adapters()` and `has_bluetooth_adapter()` so Windows and macOS are recognized as having the system BLE adapter rather than returning `[]` and forcing simulation.
+  - Guarded BlueZ-specific keyword arguments in `BleakAdapter` so they aren't passed to Bleak on Windows or macOS.
+  - Updated `requirements.txt` with environment marker `dbus-fast; sys_platform == 'linux'` so dependencies install smoothly on Windows and macOS.
+  - Multi-interface local IP detection so QR codes display the correct Wi-Fi LAN IP even on offline school access points without internet.
+- **Low-level hardware & low-spec optimizations (Raspberry Pi & older school laptops)**:
+  - Added `--low-power` / `--low-spec` CLI flag (and `LOW_SPEC=1` env var).
+  - Reduced memory footprint of the server log deque in low-spec mode.
+  - Added "Kímélő mód (alacsony teljesítményű gépekhez)" / "Eco mode" switch to Admin Settings.
+  - Canvas rendering automatically suspends when hidden or offscreen.
+  - In Eco mode, expensive HTML5 canvas `shadowBlur` filters are bypassed, frame rate is capped to 25 FPS, and trail history is reduced.
 
 ---
 
