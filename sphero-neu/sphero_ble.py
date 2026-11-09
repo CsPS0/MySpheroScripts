@@ -96,26 +96,44 @@ def release_stale(prefix="SB-", log=print):
     return released
 
 
+_has_adapter_cache = None
+
+
+def has_bluetooth_adapter():
+    """Checks whether Bluetooth hardware is present and available."""
+    global _has_adapter_cache
+    if _has_adapter_cache is not None:
+        return _has_adapter_cache
+
+    if sys.platform.startswith("linux"):
+        _has_adapter_cache = bool([p.name for p in Path("/sys/class/bluetooth").glob("hci*")])
+        return _has_adapter_cache
+    elif sys.platform in ("win32", "darwin"):
+        try:
+            async def _check():
+                async with bleak.BleakScanner():
+                    return True
+            asyncio.run(asyncio.wait_for(_check(), timeout=0.8))
+            _has_adapter_cache = True
+            return True
+        except Exception:
+            _has_adapter_cache = False
+            return False
+    _has_adapter_cache = False
+    return False
+
+
 def list_adapters():
     """Bluetooth adapters on this machine, for example ["hci0", "hci1"].
     On Linux: lists hci* adapters from /sys/class/bluetooth.
-    On Windows/macOS: returns ["default"] because Bleak operates via the system BLE stack.
+    On Windows/macOS: returns ["default"] if Bluetooth hardware is detected.
     """
     if sys.platform.startswith("linux"):
         names = [p.name for p in Path("/sys/class/bluetooth").glob("hci*")]
         return sorted((n for n in names if re.fullmatch(r"hci\d+", n)), key=lambda n: int(n[3:]))
     elif sys.platform in ("win32", "darwin"):
-        return ["default"]
+        return ["default"] if has_bluetooth_adapter() else []
     return []
-
-
-def has_bluetooth_adapter():
-    """Checks whether Bluetooth hardware is present and available."""
-    if sys.platform.startswith("linux"):
-        return bool(list_adapters())
-    elif sys.platform in ("win32", "darwin"):
-        return True
-    return False
 
 
 class BleakAdapter:

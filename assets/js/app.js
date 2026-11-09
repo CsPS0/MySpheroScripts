@@ -1069,7 +1069,7 @@ function toCanvasCoords(cmX, cmY) {
 
 let lowPowerMode = (typeof localStorage !== "undefined" && localStorage.getItem("sphero_low_power") === "1");
 let lastArenaFrame = 0;
-const LOW_POWER_FPS_INTERVAL = 1000 / 25; // ~25 FPS in low-power mode
+const ARENA_FPS_INTERVAL = 1000 / 30; // Solid 30 FPS cap for smooth, lightweight rendering
 
 function renderArena(timestamp) {
   if (!canvas || !actx) return;
@@ -1080,34 +1080,37 @@ function renderArena(timestamp) {
     return;
   }
 
-  // Cap frame rate on low-spec hardware to save CPU / battery
-  if (lowPowerMode) {
-    if (timestamp && (timestamp - lastArenaFrame < LOW_POWER_FPS_INTERVAL)) {
-      return;
-    }
-    lastArenaFrame = timestamp || performance.now();
+  // Throttle render loop to 30 FPS (or 20 FPS in Eco mode) to eliminate GPU/CPU stalls
+  const targetInterval = lowPowerMode ? (1000 / 20) : ARENA_FPS_INTERVAL;
+  if (timestamp && (timestamp - lastArenaFrame < targetInterval)) {
+    return;
   }
+  lastArenaFrame = timestamp || performance.now();
 
   const w = canvas.width, h = canvas.height;
   actx.clearRect(0, 0, w, h);
 
-  // 1. Grid lines
+  // 1. Grid lines (batched into a single path)
   const origin = toCanvasCoords(0, 0);
   actx.lineWidth = 1;
   actx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  actx.beginPath();
   for (let cm = -200; cm <= 200; cm += 20) {
     const p = toCanvasCoords(cm, 0);
-    actx.beginPath(); actx.moveTo(p.cx, 0); actx.lineTo(p.cx, h); actx.stroke();
+    actx.moveTo(p.cx, 0); actx.lineTo(p.cx, h);
   }
   for (let cm = -60; cm <= 240; cm += 20) {
     const p = toCanvasCoords(0, cm);
-    actx.beginPath(); actx.moveTo(0, p.cy); actx.lineTo(w, p.cy); actx.stroke();
+    actx.moveTo(0, p.cy); actx.lineTo(w, p.cy);
   }
+  actx.stroke();
 
-  // Major axes
+  // Major axes (batched)
   actx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  actx.beginPath(); actx.moveTo(origin.cx, 0); actx.lineTo(origin.cx, h); actx.stroke();
-  actx.beginPath(); actx.moveTo(0, origin.cy); actx.lineTo(w, origin.cy); actx.stroke();
+  actx.beginPath();
+  actx.moveTo(origin.cx, 0); actx.lineTo(origin.cx, h);
+  actx.moveTo(0, origin.cy); actx.lineTo(w, origin.cy);
+  actx.stroke();
 
   // Coordinates labels
   actx.fillStyle = "rgba(255, 255, 255, 0.25)";
@@ -1150,21 +1153,20 @@ function renderArena(timestamp) {
       if (pts.length < 2) continue;
       const robot = arenaRobots.find(r => r.name === name);
       const baseCol = robot && robot.front_led !== "#000000" ? robot.front_led : "#58a6ff";
-      actx.lineWidth = lowPowerMode ? 1.5 : 2.5;
+      actx.lineWidth = lowPowerMode ? 1.5 : 2.0;
       actx.lineCap = "round";
       const startIdx = lowPowerMode ? Math.max(1, pts.length - 8) : 1;
+      actx.beginPath();
       for (let i = startIdx; i < pts.length; i++) {
         const p1 = toCanvasCoords(pts[i - 1].x, pts[i - 1].y);
         const p2 = toCanvasCoords(pts[i].x, pts[i].y);
         const age = now - pts[i].t;
         if (age > effMaxAge) continue;
-        const alpha = Math.max(0.05, 1.0 - age / effMaxAge);
-        actx.strokeStyle = baseCol.startsWith("#") ? `${baseCol}${Math.floor(alpha * 255).toString(16).padStart(2, "0")}` : baseCol;
-        actx.beginPath();
         actx.moveTo(p1.cx, p1.cy);
         actx.lineTo(p2.cx, p2.cy);
-        actx.stroke();
       }
+      actx.strokeStyle = baseCol;
+      actx.stroke();
     }
   }
 
@@ -1196,17 +1198,12 @@ function renderArena(timestamp) {
     actx.closePath();
     actx.fill();
 
-    // Tail light (blue dot at back)
+    // Tail light (blue dot at back - fast crisp render)
     if (r.back_led && r.back_led !== "#000000") {
       actx.fillStyle = r.back_led;
-      if (!lowPowerMode) {
-        actx.shadowColor = r.back_led;
-        actx.shadowBlur = 10;
-      }
       actx.beginPath();
       actx.arc(0, rad - 2, 4, 0, Math.PI * 2);
       actx.fill();
-      if (!lowPowerMode) actx.shadowBlur = 0;
     }
 
     // Outer spherical shell
@@ -1224,27 +1221,38 @@ function renderArena(timestamp) {
     actx.lineWidth = 2;
     actx.stroke();
 
-    // 8x8 LED Matrix
+    // 8x8 LED Matrix - batched for high performance
     if (r.matrix && r.matrix.length === 8) {
-      const dotSize = 2.2;
+      const dotSize = 2.4;
       const dotSpacing = 3.2;
       const startX = -((7 * dotSpacing) / 2);
       const startY = -((7 * dotSpacing) / 2);
 
+      // Fast matrix background grid
+      actx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      actx.beginPath();
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
           const colHex = r.matrix[row][col];
-          const isLit = colHex && colHex !== "#000000";
-          actx.fillStyle = isLit ? colHex : "rgba(255, 255, 255, 0.04)";
-          if (!lowPowerMode && isLit) {
-            actx.shadowColor = colHex;
-            actx.shadowBlur = 4;
+          if (!colHex || colHex === "#000000") {
+            const dx = startX + col * dotSpacing;
+            const dy = startY + row * dotSpacing;
+            actx.moveTo(dx + dotSize / 2, dy);
+            actx.arc(dx, dy, dotSize / 2, 0, Math.PI * 2);
           }
-          actx.beginPath();
-          actx.arc(startX + col * dotSpacing, startY + row * dotSpacing, dotSize / 2, 0, Math.PI * 2);
-          actx.fill();
-          if (!lowPowerMode && isLit) {
-            actx.shadowBlur = 0;
+        }
+      }
+      actx.fill();
+
+      // Lit pixels (drawn directly without expensive software shadowBlur)
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const colHex = r.matrix[row][col];
+          if (colHex && colHex !== "#000000") {
+            actx.fillStyle = colHex;
+            actx.beginPath();
+            actx.arc(startX + col * dotSpacing, startY + row * dotSpacing, dotSize / 2, 0, Math.PI * 2);
+            actx.fill();
           }
         }
       }
