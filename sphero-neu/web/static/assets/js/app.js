@@ -3,6 +3,16 @@
  * Standalone browser simulation & real-time WebSocket controller.
  */
 
+// Automatically unregister stale ServiceWorkers from other localhost projects
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator &&
+    (location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const reg of registrations) {
+      reg.unregister();
+    }
+  }).catch(() => {});
+}
+
 // ==========================================
 // 1. Audio Synthesizer (Web Audio API)
 // ==========================================
@@ -120,6 +130,13 @@ const store = {
 // Bilingual Translation (HU default, EN secondary)
 // ==========================================
 let currentLang = store.get("sphero_lang") || "hu";
+try {
+  const urlLang = new URLSearchParams(window.location.search).get("lang");
+  if (urlLang === "en" || urlLang === "hu") {
+    currentLang = urlLang;
+    store.set("sphero_lang", urlLang);
+  }
+} catch (e) {}
 
 const I18N = {
   hu: {

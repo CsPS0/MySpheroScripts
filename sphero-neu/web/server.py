@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -711,18 +711,60 @@ app = FastAPI(lifespan=lifespan)
 
 if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+    app.mount("/en/assets", StaticFiles(directory=ASSETS_DIR), name="en_assets")
+    app.mount("/hu/assets", StaticFiles(directory=ASSETS_DIR), name="hu_assets")
 
 
-@app.get("/")
-async def index():
+def get_index_file():
     candidates = [
         PROJECT_ROOT / "index.html",
         STATIC / "index.html",
     ]
     for idx in candidates:
         if idx.exists():
-            return FileResponse(idx)
+            return idx
+    return None
+
+
+@app.get("/")
+@app.get("/index.html")
+async def index():
+    idx = get_index_file()
+    if idx:
+        return FileResponse(idx)
     raise HTTPException(404, "index.html not found")
+
+
+@app.get("/en")
+@app.get("/en/")
+async def redirect_en():
+    return RedirectResponse(url="/?lang=en", status_code=302)
+
+
+@app.get("/hu")
+@app.get("/hu/")
+async def redirect_hu():
+    return RedirectResponse(url="/?lang=hu", status_code=302)
+
+
+@app.get("/sw.js")
+@app.get("/service-worker.js")
+async def unregister_sw():
+    content = (
+        "self.addEventListener('install', () => self.skipWaiting());\n"
+        "self.addEventListener('activate', (event) => {\n"
+        "    event.waitUntil(\n"
+        "        self.registration.unregister().then(() => self.clients.matchAll())\n"
+        "        .then((clients) => { clients.forEach(c => c.navigate('/')); })\n"
+        "    );\n"
+        "});\n"
+    )
+    return Response(content=content, media_type="application/javascript")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 
 @app.get("/api/programs")
@@ -1113,6 +1155,13 @@ async def websocket(ws: WebSocket):
             await runner.release_controller(meta["id"])
         await runner.send_keys()
         await runner.broadcast_clients()
+
+
+@app.get("/{full_path:path}")
+async def catch_all_spa(full_path: str):
+    if full_path.startswith("api/") or full_path.startswith("assets/"):
+        raise HTTPException(404, "Not Found")
+    return RedirectResponse(url="/", status_code=302)
 
 
 if __name__ == "__main__":
