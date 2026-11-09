@@ -14,7 +14,7 @@ For setup and installation instructions, see the main [README.md](README.md).
 5. [Device Slots & Inactivity Watchdog (3 Devices, 5 Min Timeout)](#device-slots--inactivity-watchdog-3-devices-5-min-timeout)
 6. [Admin Authentication for Mobile Devices](#admin-authentication-for-mobile-devices)
 7. [Shows & Choreographies (NEUMANN Formation & Big Dance)](#shows--choreographies-neumann-formation--big-dance)
-8. [Interactive Minigames (Tic-Tac-Toe, Simon Says, etc.)](#interactive-minigames-tic-tac-toe-simon-says-etc)
+8. [Interactive Minigames (Tic-Tac-Toe, Memory Game, etc.)](#interactive-minigames-tic-tac-toe-memory-game-etc)
 9. [Bilingual Support (Hungarian Default, English Backup)](#bilingual-support-hungarian-default-english-backup)
 10. [Standalone Mode (GitHub Pages / Web Bluetooth)](#standalone-mode-github-pages--web-bluetooth)
 11. [School Presentation Playbook (Ages 10–14)](#school-presentation-playbook-ages-1014)
@@ -144,10 +144,10 @@ Teachers can control the entire system from their smartphone:
 
 ---
 
-## Interactive Minigames (Tic-Tac-Toe, Simon Says, etc.)
+## Interactive Minigames (Tic-Tac-Toe, Memory Game, etc.)
 
 - **Amőba / Tic-tac-toe (`tictactoe.py`)**: 9 physical robots arranged in a 3x3 grid represent the board. Players shake a robot to place their move (**X** or **O**).
-- **Simon Says (Fény-utánzó)**: Memory rhythm game with color and sound sequences.
+- **Memory Game (Memóriajáték)**: Memory rhythm game with color and sound sequences.
 - **Vakondvadászat / Whack-a-mole**: 60-second reflex challenge touching flashing neon green robots.
 - **Forró Krumpli / Hot Potato**: Circle passing game before the fuse expires.
 - **Kő-Papír-Olló / Rock-Paper-Scissors**: Head-to-head robot duel with animated matrix symbols.

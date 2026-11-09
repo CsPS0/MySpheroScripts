@@ -494,8 +494,8 @@ const PROGRAM_INFO = {
     hu: ["Forró krumpli", "Add körbe a labdát, mielőtt felrobban! Egyre gyorsabban villog."],
     en: ["Hot potato", "Pass the ball around before it explodes! It blinks faster and faster."] },
   simon: { kind: "game", robots: 4,
-    hu: ["Simon mondja", "Jegyezd meg a fények sorrendjét, és ismételd meg. Minden szint egy lépéssel hosszabb."],
-    en: ["Simon says", "Remember the order of the lights and repeat it. Each level adds a step."] },
+    hu: ["Memóriajáték", "Jegyezd meg a fények sorrendjét, és ismételd meg. Minden szint egy lépéssel hosszabb."],
+    en: ["Memory game", "Remember the order of the lights and repeat it. Each level adds a step."] },
   mole: { kind: "game", robots: 4,
     hu: ["Vakondvadászat", "Koppints a zölden világító labdára, mielőtt kialszik! 60 mp."],
     en: ["Whack-a-mole", "Tap the ball that lights up green before it goes dark! 60 s."] },
@@ -2041,7 +2041,7 @@ function runClientMole() {
 }
 
 // ------------------------------------------
-// Party Game 3: Simon Says
+// Party Game 3: Memory Game
 // ------------------------------------------
 const SIMON_NOTES = [261.6, 329.6, 392.0, 523.2];
 const SIMON_COLORS = ["#ff3b3b", "#2ecc71", "#3498db", "#f1c40f"];
@@ -2058,7 +2058,7 @@ function runClientSimon() {
     heading: 0,
     speed: 0,
     front_led: SIMON_COLORS[i],
-    back_led: "#000000",
+    back_led: "#0000ff",
     matrix: makeSolidMatrix(SIMON_COLORS[i]),
     homeX: p.x,
     homeY: p.y,
@@ -2075,7 +2075,7 @@ function runClientSimon() {
   gameState = {
     kind: "party",
     game: "simon",
-    title: "Simon Says",
+    title: "Memory game",
     phase: "watch",
     status: "Level 1: Watch sequence",
     info: "Watch which balls light up, then repeat the pattern!",
@@ -2375,7 +2375,7 @@ function handleClientGameAction(body) {
     return;
   }
 
-  // Simon Says
+  // Memory Game
   if (state.running === "simon" && clientSimState) {
     if (action === "start") {
       runClientSimon();
