@@ -1,11 +1,11 @@
 {
   "simon": {
     "speed": "insane",
-    "layout": "random",
-    "drift": true
+    "layout": "3x3",
+    "drift": false
   },
   "mole": {
-    "speed": "normal",
+    "speed": "insane",
     "layout": "3x3",
     "drift": false
   }

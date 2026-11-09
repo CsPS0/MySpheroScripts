@@ -148,6 +148,7 @@ const I18N = {
     connect_btn: "Csatlakozás",
     log_btn: "Napló",
     log_title: "Rendszernapló megnyitása",
+    theme_title: "Téma váltása (Krém / Sötét)",
     sound_title: "Hang be/ki",
     admin_btn: "Beállítások",
     stop: "Leállítás",
@@ -181,6 +182,22 @@ const I18N = {
     tab_drive: "Vezetés",
     tab_shows: "Műsorok",
     tab_games: "Játékok",
+    tab_docs: "Útmutató",
+    docs_standalone_title: "1. Önálló weboldal (Telepítés nélkül)",
+    docs_standalone_desc: "A weboldal szerver nélkül, közvetlenül a böngészőben is működik (GitHub Pages vagy az index.html megnyitásával).",
+    docs_standalone_1: "Beépített 60 FPS fizikai és 8x8 LED mátrix szimulátor minden műsorhoz (Neumann, Szinkrontánc, Bolyongás) és játékhoz.",
+    docs_standalone_2: "Közvetlen Web Bluetooth kapcsolat: kattints a felső sávban a Csatlakozás gombra (Chrome / Edge / Bluefy böngészőben) valódi Sphero BOLT irányításához.",
+    docs_open_live: "Élő webes verzió megnyitása",
+    docs_zip_title: "2. Letöltés egyetlen ZIP csomagban",
+    docs_zip_desc: "Git fiók és parancssor nélkül is letöltheted a teljes csomagot egyetlen tömörített fájlban.",
+    docs_zip_1: "Töltsd le és csomagold ki a ZIP fájlt egy tetszőleges mappába.",
+    docs_zip_2: "Önálló módhoz nyisd meg az index.html fájlt, vagy teljes szerver módhoz indítsd el a start.bat (Windows) / ./start.sh (Linux/macOS) fájlt.",
+    docs_download_zip: "Teljes ZIP csomag letöltése",
+    docs_open_repo: "GitHub adattár",
+    docs_git_title: "3. Git klónozás & Helyi Flotta Szerver (15 robotig)",
+    docs_git_desc: "Több robot egyidejű Bluetooth vezérléséhez, QR-kódos telefonos irányításhoz és távoli Admin belépéshez futtasd a Python szervert:",
+    docs_git_1: "Nyisd meg a http://localhost:8080 címet; a diákok a QR-kód beolvasásával csatlakozhatnak (1: Piros, 2: Zöld, 3: Kék robot).",
+    docs_git_2: "Távoli telefonos vezérléshez használd a felső sáv Admin gombját (alapértelmezett jelszó: admin1234 vagy ADMIN_PASSWORD környezeti változó).",
     hud_heading: "Irány",
     hud_throttle: "Sebesség",
     steer_robot: "Melyik robotot vezeted?",
@@ -327,6 +344,7 @@ const I18N = {
     connect_btn: "Connect",
     log_btn: "Log",
     log_title: "Open system log",
+    theme_title: "Switch theme (Cream / Dark)",
     sound_title: "Sound on/off",
     admin_btn: "Settings",
     stop: "Stop",
@@ -360,6 +378,22 @@ const I18N = {
     tab_drive: "Drive",
     tab_shows: "Shows",
     tab_games: "Games",
+    tab_docs: "Guide",
+    docs_standalone_title: "1. Standalone Website (No Installation Needed)",
+    docs_standalone_desc: "The dashboard runs directly in the browser without a backend server (via GitHub Pages or opening index.html locally).",
+    docs_standalone_1: "Built-in 60 FPS 2D physics & 8x8 LED matrix simulator for all shows (Neumann, Dance, Roam) and minigames.",
+    docs_standalone_2: "Direct Web Bluetooth pairing: click Connect in the top bar (in Chrome, Edge, or Bluefy on iOS) to drive a physical Sphero BOLT directly.",
+    docs_open_live: "Open Live Web Version",
+    docs_zip_title: "2. Download in One Zipped Package",
+    docs_zip_desc: "Download the entire suite as a single .zip archive without needing a Git account or command-line tools.",
+    docs_zip_1: "Download and extract the ZIP archive into any folder on your computer.",
+    docs_zip_2: "Open index.html directly for standalone browser mode, or launch start.bat (Windows) / ./start.sh (Linux/macOS) for the full fleet server.",
+    docs_download_zip: "Download Full ZIP Package",
+    docs_open_repo: "GitHub Repository",
+    docs_git_title: "3. Git Clone & Local Fleet Server (Up to 15 Robots)",
+    docs_git_desc: "For multi-robot Bluetooth fleet control, QR-code phone controllers, and remote Admin login, run the local Python server:",
+    docs_git_1: "Open http://localhost:8080; students scan the QR code with their phone camera to join (Slot 1: Red, 2: Green, 3: Blue).",
+    docs_git_2: "Use the Admin button in the top bar for remote host control from a phone (default password: admin1234 or set ADMIN_PASSWORD).",
     hud_heading: "Heading",
     hud_throttle: "Speed",
     steer_robot: "Which robot do you drive?",
@@ -546,6 +580,43 @@ function updateSoundButton() {
   if (use) use.setAttribute("href", soundOn ? "#i-sound" : "#i-mute");
 }
 
+function isDarkTheme() {
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if (meta && meta.content === "light") return false;
+  if (meta && meta.content === "dark") return true;
+  return true;
+}
+
+function updateThemeButton() {
+  const dark = isDarkTheme();
+  const use = $("theme-icon");
+  if (use) use.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+  const brandLogo = $("brand-logo-use");
+  if (brandLogo) brandLogo.setAttribute("href", dark ? "#i-sphero-dark" : "#i-sphero-light");
+  const fav = $("site-favicon");
+  if (fav) fav.href = dark ? "assets/icons/sphero-dark.svg" : "assets/icons/sphero-light.svg";
+}
+
+function applyColorScheme(scheme) {
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if (meta) meta.content = scheme;
+  updateThemeButton();
+}
+
+if ($("theme-toggle")) {
+  $("theme-toggle").onclick = () => {
+    const next = isDarkTheme() ? "light" : "dark";
+    store.set("color-scheme", next);
+    applyColorScheme(next);
+  };
+}
+window.addEventListener("storage", (e) => {
+  if (e.key === "color-scheme") {
+    applyColorScheme(e.newValue || "dark");
+  }
+});
+updateThemeButton();
+
 function setLanguage(lang) {
   currentLang = lang;
   store.set("sphero_lang", lang);
@@ -578,10 +649,16 @@ const GLYPHS = {
   "7": [".XXXXXX.", ".....XX.", "....XX..", "...XX...", "...XX...", "..XX....", "..XX....", "..XX...."],
   "8": ["..XXXX..", ".XX..XX.", ".XX..XX.", "..XXXX..", ".XX..XX.", ".XX..XX.", ".XX..XX.", "..XXXX.."],
   "9": ["..XXXX..", ".XX..XX.", ".XX..XX.", "..XXXXX.", ".....XX.", ".....XX.", "..XXXX..", "........"],
+  "10": [".X..XXX.", "XX..X.X.", ".X..X.X.", ".X..X.X.", ".X..X.X.", ".X..X.X.", "XXX.XXX.", "........"],
+  "11": [".X...X..", "XX..XX..", ".X...X..", ".X...X..", ".X...X..", ".X...X..", "XXX.XXX.", "........"],
+  "12": [".X..XXX.", "XX....X.", ".X..XXX.", ".X..X...", ".X..X...", ".X..X...", "XXX.XXX.", "........"],
+  "13": [".X..XXX.", "XX....X.", ".X..XXX.", ".X....X.", ".X....X.", ".X....X.", "XXX.XXX.", "........"],
+  "14": [".X..X.X.", "XX..X.X.", ".X..X.X.", ".X..XXX.", ".X....X.", ".X....X.", "XXX...X.", "........"],
+  "15": [".X..XXX.", "XX..X...", ".X..XXX.", ".X....X.", ".X....X.", ".X....X.", "XXX.XXX.", "........"],
   "X": ["XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX..", "..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX"],
   "O": ["..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX", "XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX.."],
   "?": ["..XXXX..", ".XX..XX.", ".....XX.", "....XX..", "...XX...", "...XX...", "........", "...XX..."],
-  "N": ["XX....XX", "XXX...XX", "XXXX..XX", "XX.XX.XX", "XX..XXXX", "XX...XXX", "XX....XX", "XX....XX"],
+  "N": ["XX....XX", "XXX...XX", "XXXX..XX", "XX.XX.XX", "XX.XX.XX", "XX..XXXX", "XX...XXX", "XX....XX"],
   "E": ["XXXXXXXX", "XXXXXXXX", "XX......", "XXXXXX..", "XXXXXX..", "XX......", "XXXXXXXX", "XXXXXXXX"],
   "U": ["XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX", "XXXXXXXX", ".XXXXXX."],
   "M": ["XX....XX", "XXX..XXX", "XXXXXXXX", "XX.XX.XX", "XX....XX", "XX....XX", "XX....XX", "XX....XX"],
@@ -621,7 +698,7 @@ function makeSolidMatrix(colorHex) {
 // 3. Control Tabs (Drive / Shows / Games)
 // ==========================================
 let activeTab = "drive";
-const TAB_FOR = { drive: "drive", shows: "shows", games: "games", tictactoe: "games", arena: null };
+const TAB_FOR = { drive: "drive", shows: "shows", games: "games", docs: "docs", tictactoe: "games", arena: null };
 
 function switchTab(tabId) {
   const target = TAB_FOR[tabId] === undefined ? tabId : TAB_FOR[tabId];
@@ -808,6 +885,7 @@ function renderOptionList(boxId, kind, selected, onPick) {
     b.querySelector(".opt-title").appendChild(meta);
     b.querySelector(".opt-desc").textContent = desc;
     b.onclick = () => onPick(id);
+    b.ondblclick = () => { onPick(id); startProgram(id); };
     box.appendChild(b);
   }
 }
@@ -1100,7 +1178,7 @@ const ARENA_FPS_INTERVAL = 1000 / 60; // Solid 60 FPS cap for ultra-smooth rende
 
 function resolveRobotCollisions(robots) {
   if (!robots || robots.length < 2) return;
-  const minDist = 14.0; // cm (matches visual diameter: 30px / 2.2 px/cm = 13.6 cm)
+  const minDist = 7.3; // cm (matches physical ROBOT_DIAMETER = 7.3 cm, ROBOT_RADIUS = 3.65 cm)
   const minX = -80.0, maxX = 98.0, minY = -30.0, maxY = 135.0;
 
   for (let iter = 0; iter < 3; iter++) {
@@ -1189,11 +1267,12 @@ function renderArena(timestamp) {
 
   const w = canvas.width, h = canvas.height;
   actx.clearRect(0, 0, w, h);
+  const dark = isDarkTheme();
 
   // 1. Grid lines (batched into a single path)
   const origin = toCanvasCoords(0, 0);
   actx.lineWidth = 1;
-  actx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  actx.strokeStyle = dark ? "rgba(255, 255, 255, 0.05)" : "rgba(27, 32, 38, 0.07)";
   actx.beginPath();
   for (let cm = -200; cm <= 200; cm += 20) {
     const p = toCanvasCoords(cm, 0);
@@ -1206,14 +1285,14 @@ function renderArena(timestamp) {
   actx.stroke();
 
   // Major axes (batched)
-  actx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  actx.strokeStyle = dark ? "rgba(255, 255, 255, 0.15)" : "rgba(27, 32, 38, 0.18)";
   actx.beginPath();
   actx.moveTo(origin.cx, 0); actx.lineTo(origin.cx, h);
   actx.moveTo(0, origin.cy); actx.lineTo(w, origin.cy);
   actx.stroke();
 
   // Coordinates labels
-  actx.fillStyle = "rgba(255, 255, 255, 0.25)";
+  actx.fillStyle = dark ? "rgba(255, 255, 255, 0.28)" : "rgba(27, 32, 38, 0.48)";
   actx.font = "10px sans-serif";
   actx.textAlign = "left";
   for (let cm = -160; cm <= 160; cm += 40) {
@@ -1228,9 +1307,9 @@ function renderArena(timestamp) {
 
   // Home spots
   const homeSpots = [
-    { x: 0, y: 0, label: "BOLT 1", color: "#ff3b3b" },
-    { x: 15, y: 0, label: "BOLT 2", color: "#2ecc71" },
-    { x: 30, y: 0, label: "BOLT 3", color: "#3498db" },
+    { x: 0, y: 0, label: "BOLT 1", color: dark ? "#ff3b3b" : "#d93226" },
+    { x: 15, y: 0, label: "BOLT 2", color: dark ? "#2ecc71" : "#16803c" },
+    { x: 30, y: 0, label: "BOLT 3", color: dark ? "#3498db" : "#0077b8" },
   ];
   for (const sp of homeSpots) {
     const p = toCanvasCoords(sp.x, sp.y);
@@ -1252,7 +1331,8 @@ function renderArena(timestamp) {
     for (const [name, pts] of Object.entries(trails)) {
       if (pts.length < 2) continue;
       const robot = arenaRobots.find(r => r.name === name);
-      const baseCol = robot && robot.front_led !== "#000000" ? robot.front_led : "#58a6ff";
+      const defaultTrail = dark ? "#58a6ff" : "#0077b8";
+      const baseCol = robot && robot.front_led !== "#000000" && (dark || robot.front_led !== "#ffffff") ? robot.front_led : defaultTrail;
       actx.lineWidth = lowPowerMode ? 1.5 : 2.0;
       actx.lineCap = "round";
       const startIdx = lowPowerMode ? Math.max(1, pts.length - 8) : 1;
@@ -1274,6 +1354,7 @@ function renderArena(timestamp) {
   const nowMs = Date.now();
   const isCrowded = arenaRobots.length > 5;
   let hoveredInfo = null;
+  const hoverAccent = dark ? "#58a6ff" : "#0077b8";
 
   for (let idx = 0; idx < arenaRobots.length; idx++) {
     const r = arenaRobots[idx];
@@ -1294,9 +1375,17 @@ function renderArena(timestamp) {
     actx.save();
     actx.translate(rx, ry);
 
+    // Subtle floor shadow in light mode
+    if (!dark) {
+      actx.fillStyle = "rgba(27, 32, 38, 0.16)";
+      actx.beginPath();
+      actx.arc(0, 2, rad + 1, 0, Math.PI * 2);
+      actx.fill();
+    }
+
     // Glowing locator pulse ring when hovered
     if (isHovered) {
-      actx.strokeStyle = "#58a6ff";
+      actx.strokeStyle = hoverAccent;
       actx.lineWidth = 2.5;
       actx.beginPath();
       actx.arc(0, 0, rad + 4, 0, Math.PI * 2);
@@ -1308,8 +1397,8 @@ function renderArena(timestamp) {
     actx.rotate(headingRad);
 
     const beamGrad = actx.createRadialGradient(0, 0, rad, 0, -rad - 30, 40);
-    beamGrad.addColorStop(0, "rgba(255, 255, 255, 0.35)");
-    beamGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+    beamGrad.addColorStop(0, dark ? "rgba(255, 255, 255, 0.35)" : "rgba(0, 119, 184, 0.26)");
+    beamGrad.addColorStop(1, dark ? "rgba(255, 255, 255, 0.0)" : "rgba(0, 119, 184, 0.0)");
     actx.fillStyle = beamGrad;
     actx.beginPath();
     actx.moveTo(0, 0);
@@ -1325,18 +1414,20 @@ function renderArena(timestamp) {
       actx.fill();
     }
 
-    // Outer spherical shell
+    // Outer spherical shell (smoked polycarbonate so 8x8 LEDs always pop)
     const ballGrad = actx.createRadialGradient(-rad * 0.3, -rad * 0.3, 2, 0, 0, rad);
     ballGrad.addColorStop(0, "rgba(255, 255, 255, 0.35)");
-    ballGrad.addColorStop(0.7, "rgba(40, 50, 70, 0.65)");
-    ballGrad.addColorStop(1, "rgba(20, 25, 35, 0.95)");
+    ballGrad.addColorStop(0.7, "rgba(38, 48, 66, 0.85)");
+    ballGrad.addColorStop(1, "rgba(18, 23, 33, 0.96)");
     actx.fillStyle = ballGrad;
     actx.beginPath();
     actx.arc(0, 0, rad, 0, Math.PI * 2);
     actx.fill();
 
     // Rim glow
-    actx.strokeStyle = isHovered ? "#58a6ff" : (r.front_led !== "#000000" ? r.front_led : "rgba(100, 150, 255, 0.4)");
+    const rimDefault = dark ? "rgba(100, 150, 255, 0.4)" : "rgba(0, 119, 184, 0.55)";
+    const rimFront = (r.front_led !== "#000000" && (dark || r.front_led !== "#ffffff")) ? r.front_led : rimDefault;
+    actx.strokeStyle = isHovered ? hoverAccent : rimFront;
     actx.lineWidth = isHovered ? 2.2 : 1.8;
     actx.stroke();
 
@@ -1348,7 +1439,7 @@ function renderArena(timestamp) {
       const startY = -((7 * dotSpacing) / 2);
 
       // Fast matrix background grid
-      actx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      actx.fillStyle = "rgba(255, 255, 255, 0.05)";
       actx.beginPath();
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
@@ -1380,7 +1471,7 @@ function renderArena(timestamp) {
     actx.restore();
 
     // Robot Name / ID Tag
-    actx.fillStyle = isHovered ? "#58a6ff" : "#ffffff";
+    actx.fillStyle = isHovered ? hoverAccent : (dark ? "#ffffff" : "#1b2026");
     actx.font = "bold 10px sans-serif";
     actx.textAlign = "center";
     const stagger = isCrowded && (idx % 2 !== 0);
@@ -1388,7 +1479,7 @@ function renderArena(timestamp) {
     actx.fillText(isCrowded ? `#${info.id} ${r.name}` : r.name, rx, labelY);
 
     if (!isCrowded) {
-      actx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      actx.fillStyle = dark ? "rgba(255, 255, 255, 0.55)" : "rgba(27, 32, 38, 0.62)";
       actx.font = "9px monospace";
       actx.fillText(`(${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`, rx, labelY + 10);
     }
@@ -1405,8 +1496,8 @@ function renderArena(timestamp) {
     const pillX = Math.max(10, Math.min(w - pillW - 10, rx - pillW / 2));
     const pillY = Math.max(10, ry - rad - 28);
 
-    actx.fillStyle = "rgba(13, 17, 23, 0.94)";
-    actx.strokeStyle = "#58a6ff";
+    actx.fillStyle = dark ? "rgba(13, 17, 23, 0.94)" : "rgba(250, 247, 240, 0.96)";
+    actx.strokeStyle = hoverAccent;
     actx.lineWidth = 1.5;
     actx.beginPath();
     if (actx.roundRect) {
@@ -1417,7 +1508,7 @@ function renderArena(timestamp) {
     actx.fill();
     actx.stroke();
 
-    actx.fillStyle = "#58a6ff";
+    actx.fillStyle = hoverAccent;
     actx.textAlign = "center";
     actx.fillText(text, pillX + pillW / 2, pillY + 15);
   }
@@ -1496,12 +1587,12 @@ const DEFAULT_TTT_CONFIG = {
   mirror: false,
 };
 
-const NEUMANN_COLOR = "#008cff";
+const NEUMANN_COLOR = "#0077b8";
 const DEFAULT_LETTER_CONFIG = {
   align: "compass",
   hand: false,
   heading: 0,
-  letters: "NEUMANN".split("").map((letter) => ({ letter, rotation: 180, mirror: false, turn: 0 })),
+  letters: "NEUMANN".split("").map((letter) => ({ letter, rotation: 0, mirror: false, turn: 0 })),
 };
 
 let gameState = null;
@@ -1519,12 +1610,12 @@ function initClientRobots(count = 3) {
     { name: "BOLT 7", x: 25, y: 75, col: "#e67e22", matrixKey: "7" },
     { name: "BOLT 8", x: 50, y: 75, col: "#ffffff", matrixKey: "8" },
     { name: "BOLT 9", x: -50, y: 105, col: "#9b59b6", matrixKey: "9" },
-    { name: "BOLT 10", x: -25, y: 105, col: "#fd79a8", matrixKey: "1" },
-    { name: "BOLT 11", x: 0, y: 105, col: "#0984e3", matrixKey: "2" },
-    { name: "BOLT 12", x: 25, y: 105, col: "#00b894", matrixKey: "3" },
-    { name: "BOLT 13", x: 50, y: 105, col: "#ffeaa7", matrixKey: "4" },
-    { name: "BOLT 14", x: -25, y: 125, col: "#6c5ce7", matrixKey: "5" },
-    { name: "BOLT 15", x: 25, y: 125, col: "#d63031", matrixKey: "6" },
+    { name: "BOLT 10", x: -25, y: 105, col: "#fd79a8", matrixKey: "10" },
+    { name: "BOLT 11", x: 0, y: 105, col: "#0984e3", matrixKey: "11" },
+    { name: "BOLT 12", x: 25, y: 105, col: "#00b894", matrixKey: "12" },
+    { name: "BOLT 13", x: 50, y: 105, col: "#ffeaa7", matrixKey: "13" },
+    { name: "BOLT 14", x: -25, y: 125, col: "#6c5ce7", matrixKey: "14" },
+    { name: "BOLT 15", x: 25, y: 125, col: "#d63031", matrixKey: "15" },
   ];
   clientRobots = [];
   for (let i = 0; i < Math.min(count, configs.length); i++) {
@@ -1640,7 +1731,7 @@ function runClientDance() {
   initClientRobots(15);
   // Align all client dance robots in a single horizontal line
   const n = clientRobots.length;
-  const spacing = Math.min(15.0, 130.0 / Math.max(1, n - 1));
+  const spacing = Math.min(15.0, 140.0 / Math.max(1, n - 1));
   const startX = - (n - 1) * spacing / 2.0;
   clientRobots.forEach((r, idx) => {
     r.x = startX + idx * spacing;
@@ -1795,7 +1886,7 @@ function runClientNeu() {
       clientRobots.forEach((r, i) => {
         const l = letterCfg.letters[i];
         r.heading = (letterCfg.heading + (l.turn || 0) + 360) % 360;
-        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, (l.rotation + 180) % 360, l.mirror);
+        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, l.rotation, l.mirror);
       });
     }
     updateTelemetry({ robots: clientRobots });
@@ -2538,7 +2629,33 @@ function handleClientGameAction(body) {
       renderGame();
       updateTelemetry({ robots: clientRobots });
     } else if (action === "recount") {
-      runClientTtt();
+      gameState.phase = "numbering";
+      gameState.board = Array(9).fill("");
+      gameState.winner = null;
+      gameState.line = null;
+      gameState.numbered = 0;
+      gameState.next = 1;
+      clientRobots.forEach((r) => {
+        r.matrix = makeMatrix("?", "#ffa000", tttCfg.rotation, tttCfg.mirror);
+        r.front_led = "#ffa000";
+      });
+      renderGame();
+      updateTelemetry({ robots: clientRobots });
+    } else if (action === "tap" && gameState.phase === "numbering") {
+      const idx = Math.max(0, Math.min(8, (body.cell || 1) - 1));
+      const num = gameState.next || (gameState.numbered + 1);
+      if (clientRobots[idx]) {
+        clientRobots[idx].matrix = makeMatrix(String(num), "#c8c8c8", tttCfg.rotation, tttCfg.mirror);
+        clientRobots[idx].front_led = "#000000";
+      }
+      gameState.numbered = num;
+      gameState.next = num + 1;
+      if (gameState.numbered >= 9) {
+        handleClientGameAction({ action: "start" });
+      } else {
+        renderGame();
+        updateTelemetry({ robots: clientRobots });
+      }
     }
     return;
   }
@@ -2634,7 +2751,8 @@ function sendShake(cell = 1, robot = "") {
 function handleClientShake(cell, robot) {
   if (state.running === "tictactoe") {
     if (gameState && gameState.phase === "numbering") {
-      handleClientGameAction({ action: "start" });
+      handleClientGameAction({ action: "tap", cell });
+      return;
     }
     sendGameAction({ action: "play", cell });
   } else if (state.running === "simon") {
@@ -2892,7 +3010,7 @@ function renderDance() {
   $("dance-status").textContent = phaseText + (g.left ? ` · ${g.left} ${currentLang === "hu" ? "mp" : "s"}` : "")
     + (g.robots ? ` · ${g.robots.length} ${t("robots_unit")}` : "");
   const go = $("dance-go");
-  go.hidden = !["setup", "rainbow", "rush", "chars"].includes(g.phase);
+  go.hidden = !["setup", "rainbow", "rush", "chars", "home"].includes(g.phase);
   go.textContent = t(g.phase === "setup" ? "dance_go" : "dance_next");
 }
 
@@ -2990,7 +3108,7 @@ function handleClientLetters(body) {
       if (body.action === "mirror") item.mirror = !item.mirror;
       if (body.action === "left") item.turn = ((item.turn - 15 + 540) % 360) - 180;
       if (body.action === "right") item.turn = ((item.turn + 15 + 540) % 360) - 180;
-      if (body.action === "reset") { item.rotation = 180; item.mirror = false; item.turn = 0; }
+      if (body.action === "reset") { item.rotation = 0; item.mirror = false; item.turn = 0; }
     };
     if (body.target === "all") {
       letterCfg.letters.forEach(applyAction);
@@ -3004,7 +3122,7 @@ function handleClientLetters(body) {
       const l = letterCfg.letters[i];
       if (l) {
         r.heading = (letterCfg.heading + (l.turn || 0) + 360) % 360;
-        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, (l.rotation + 180) % 360, l.mirror);
+        r.matrix = makeMatrix(l.letter, NEUMANN_COLOR, l.rotation, l.mirror);
       }
     });
     updateTelemetry({ robots: clientRobots });
@@ -3209,7 +3327,7 @@ async function initQRCode() {
   if (typeof QRCode !== "undefined") {
     new QRCode(box, {
       text: targetUrl, width: 264, height: 264,
-      colorDark: "#0b0e14", colorLight: "#ffffff",
+      colorDark: "#181c20", colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.M,
     });
   }
@@ -3543,11 +3661,17 @@ function handleWsMessage(e) {
     renderStatus();
   } else if (msg.type === "log") {
     addLine(msg.line);
+    if (/collision!|BOOM!/i.test(msg.line)) playBoom();
+    else if (/Passed!/i.test(msg.line)) playPop();
+    else if (/Wrong ball/i.test(msg.line)) playBuzzer();
+    else if (/Level \d+ done|wins the/i.test(msg.line)) playVictory();
   } else if (msg.type === "letters") {
     letterCfg = msg.config;
     renderLetters();
   } else if (msg.type === "game") {
+    const prevPhase = gameState ? gameState.phase : null;
     gameState = msg.state;
+    if (gameState && gameState.phase === "boom" && prevPhase !== "boom") playBoom();
     if (gameState && gameState.kind === "party" && gameState.game) selectedGame = gameState.game;
     else if (gameState && gameState.kind === "dance") selectedShow = "dance";
     else if (gameState) selectedGame = "tictactoe";

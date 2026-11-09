@@ -13,22 +13,26 @@ A cross-platform web dashboard and control server for **Sphero BOLT** robots, de
 
 ---
 
-## Quick Start Guide
+## Three Ways to Use the Suite
 
-Follow these steps to get the server up and running on your computer.
+### 1. Standalone Web Mode (Zero Installation / Browser-Only)
+You can run the full web dashboard **without installing Python or running a server**:
+- **Live Online (GitHub Pages)**: Open **[https://csps0.github.io/MySpheroScripts/](https://csps0.github.io/MySpheroScripts/)** in any modern browser.
+- **Local Standalone File**: Double-click `index.html` in the extracted project folder.
+- **Built-in 60 FPS Simulator**: All shows (`Neumann Formation`, `Dance Show`, `Autonomous Roam`), games (`Tic-Tac-Toe`, `Memory Game`, `Whack-a-Mole`, `Hot Potato`, `Rock-Paper-Scissors`), and `Joystick Drive` run directly in the browser on the interactive 2D Arena canvas.
+- **Direct Web Bluetooth**: Click **Csatlakozás (Connect)** in the top bar (using Google Chrome, Microsoft Edge, or Bluefy on iOS) to pair and drive a physical Sphero BOLT directly from the browser.
 
-### Step 1: Get the Code
+### 2. Download as a Single Zipped Package (No Git Required)
+1. Click the green **Code** button at the top of the GitHub page and select **Download ZIP** (or **[click here to download the full ZIP directly](https://github.com/CsPS0/MySpheroScripts/archive/refs/heads/main.zip)**).
+2. Extract the `.zip` archive into any folder on your computer (e.g. `C:\MySpheroScripts` or `~/MySpheroScripts`).
+3. Open `index.html` directly for **Standalone Web Mode**, or follow Steps 2–4 below to start the **Local Python Fleet Server** (`start.bat` on Windows / `./start.sh` on Linux & macOS).
 
-Choose one of the two options below:
-
-- **Option A: Download ZIP (Simplest)**:
-  1. Click the green **Code** button at the top of this GitHub repository page and select **Download ZIP** (or [click here to download](https://github.com/CsPS0/MySpheroScripts/archive/refs/heads/main.zip)).
-  2. Extract the downloaded ZIP archive into a folder of your choice (e.g. `C:\MySpheroScripts` or `~/MySpheroScripts`).
-- **Option B: Git Clone**:
-  ```bash
-  git clone https://github.com/CsPS0/MySpheroScripts.git
-  cd MySpheroScripts
-  ```
+### 3. Git Clone & Local Fleet Server (Up to 15 Robots + Phone QR Controllers)
+Clone the repository with Git (or use GitHub Desktop / VS Code Git login) to run the local FastAPI backend for multi-robot Bluetooth orchestration and mobile QR-code controllers:
+```bash
+git clone https://github.com/CsPS0/MySpheroScripts.git
+cd MySpheroScripts
+```
 
 ---
 
@@ -112,8 +116,18 @@ You can pass flags directly to any of the start scripts:
 
 ---
 
+## Automated QA & Test Suite
+
+Run the end-to-end automated verification harness (covering backend physics simulation, all subprocess shows/minigames, Neumann letter orientation, and frontend synchronization):
+
+```bash
+.\sphero-neu\.venv\Scripts\python.exe sphero-neu\test_suite.py
+```
+
+---
+
 ## Documentation Links
 
-- **[USAGE.md](USAGE.md)**: Full guide for the two-column dashboard, 15-robot fleet management, phone driving with directional calibration, NEUMANN formation with compass alignment, Big Dance, minigames, and open house presentation playbook.
+- **[USAGE.md](USAGE.md)**: Full guide for the two-column dashboard, Dark & Creamy Light themes, built-in **Útmutató / Guide** tab, 15-robot fleet management, phone driving with directional calibration, NEUMANN formation with compass alignment, Big Dance, minigames, and open house presentation playbook.
 - **[CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md)**: Architecture notes, hardware BLE quirks and workarounds for spherov2 0.12.1, caching specifications, and test reports.
 - **Online Demo**: Test the web interface client-side via GitHub Pages at **[https://csps0.github.io/MySpheroScripts/](https://csps0.github.io/MySpheroScripts/)**.

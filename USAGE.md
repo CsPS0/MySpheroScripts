@@ -30,6 +30,7 @@ The interface features an uncluttered two-column responsive layout built for liv
 - **Fleet Counters**: Active robot count, low-battery warning count, and connected phones count.
 - **Napló (Log) Button**: Toggles the right slide-over log drawer; features an unread event badge counter.
 - **HU | EN Toggle**: One-click bilingual switch between Hungarian and English.
+- **Téma váltása (Theme Toggle)**: Switches between **Dark Space-Slate** (default) and **Creamy Light Robotics** mode, updating the 2D Arena, tactile joystick, header logo, and browser favicon.
 - **Hang (Sound) Toggle**: Mutes or enables audio cues.
 - **Beállítások (Settings)**: Opens admin options (Eco mode, auto-map focus toggle, calibration reset).
 - **Leállítás (Stop)**: High-visibility red emergency stop button, accessible from every view.
@@ -50,7 +51,8 @@ Slides down under the top bar while a program is executing, displaying:
   - **Szinkrontánc (Big Dance)**: Coordinated fleet choreography for up to 15 robots.
   - **NEUMANN iskolai felirat (School Formation)**: 7-robot letter formation with compass alignment.
   - **Önálló séta (Autonomous Roam)**: Obstacle-avoiding wandering mode.
-- **Játékok / Games Tab**: Start cards for interactive party games.
+- **Játékok / Games Tab**: Start cards for interactive party games, with persistent speed, layout (`3x3` / `random`), and gentle drift settings (**Beállítások mentése / Save preferences**).
+- **Útmutató / Guide Tab**: Built-in bilingual documentation explaining how to use the Standalone Web Mode, download the project as a single `.zip` archive, or clone via Git to run the local 15-robot fleet server.
 - **Robot Flotta (Fleet Grid)**: Compact cards for all discovered robots showing robot number, BLE name, battery status dot, and assigned phone driver badge.
 
 ### Slide-Over Log Drawer
@@ -162,12 +164,17 @@ Teachers can control the entire system from their smartphone:
 
 ---
 
-## Standalone Mode (GitHub Pages / Web Bluetooth)
+## Standalone Mode, ZIP Package & Git Server Options
 
-If presenting without the Python server:
-1. Open **`https://csps0.github.io/MySpheroScripts/`** in Google Chrome on your phone or laptop.
-2. Tap **Csatlakozás (Connect)** in the header.
-3. Tap **Sphero Keresése és Párosítása (Scan & Pair via Bluetooth)** to connect directly using Web Bluetooth.
+1. **Standalone Browser Mode (GitHub Pages / `index.html`)**:
+   - Open **`https://csps0.github.io/MySpheroScripts/`** (or local `index.html`) in Google Chrome or Microsoft Edge.
+   - All shows and minigames run immediately in the built-in 60 FPS 2D physics & 8×8 LED matrix simulator.
+   - Tap **Csatlakozás (Connect)** in the header to pair a physical Sphero BOLT directly via **Web Bluetooth**.
+2. **Single Zipped Package Download**:
+   - Download **[MySpheroScripts-main.zip](https://github.com/CsPS0/MySpheroScripts/archive/refs/heads/main.zip)** directly from GitHub or via the **Útmutató (Guide)** tab inside the web app.
+   - Extract anywhere and open `index.html` (standalone) or run `start.bat` / `./start.sh` (local server).
+3. **Git Clone & Full Fleet Server**:
+   - Clone `https://github.com/CsPS0/MySpheroScripts.git`, install `sphero-neu/requirements.txt` in `.venv`, and run `python sphero-neu/web/server.py` (add `--sim` for simulation) to control up to 15 robots and enable QR-code phone controllers.
 
 ---
 

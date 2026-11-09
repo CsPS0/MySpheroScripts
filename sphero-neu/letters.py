@@ -30,7 +30,7 @@ DEFAULT = {
     "heading": 0,       # all robots turn to this heading (compass: 0 north, 90 east; aim: 0 away from you)
     # rotation: letter on the matrix (90 degree steps); turn: extra turn of that
     # one robot in degrees, to straighten a robot that is a bit off
-    "letters": [{"letter": ch, "rotation": 180, "mirror": False, "turn": 0} for ch in WORD],
+    "letters": [{"letter": ch, "rotation": 0, "mirror": False, "turn": 0} for ch in WORD],
 }
 
 

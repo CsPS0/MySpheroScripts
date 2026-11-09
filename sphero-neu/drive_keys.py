@@ -231,6 +231,10 @@ def main():
     robots = [int(n) - 1 for n in args.robots.split(",")]
     keymaps = keymaps_for(robots)
 
+    if sphero_ble.is_simulation():
+        import sphero_sim
+        sphero_sim.SimulatorManager.get().apply_layout("drive")
+
     with contextlib.ExitStack() as stack:
         apis, toys = {}, {}
         # BOLT-n resolves to robot n of the web server's pool (address cache),

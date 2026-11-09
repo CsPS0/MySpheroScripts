@@ -67,9 +67,9 @@ LETTERS = {
           "XXX...XX",
           "XXXX..XX",
           "XX.XX.XX",
+          "XX.XX.XX",
           "XX..XXXX",
           "XX...XXX",
-          "XX....XX",
           "XX....XX"],
     "E": ["XXXXXXXX",
           "XXXXXXXX",
@@ -105,6 +105,41 @@ LETTERS = {
           "XX....XX"],
 }
 LETTER_MIRROR = False   # True if N and E show mirrored
+
+BOOM = [
+    "X..XX..X",
+    ".XXXXXX.",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    ".XXXXXX.",
+    "X..XX..X",
+]
+
+EXTRA_GLYPHS = {
+    "0": ["..XXXX..", ".XX..XX.", ".XX..XX.", ".XX..XX.", ".XX..XX.", ".XX..XX.", ".XX..XX.", "..XXXX.."],
+    "B": ["XXXXXX..", "XX...XX.", "XX...XX.", "XXXXXX..", "XX...XX.", "XX...XX.", "XX...XX.", "XXXXXX.."],
+    "C": ["..XXXXX.", ".XX...XX", "XX......", "XX......", "XX......", "XX......", ".XX...XX", "..XXXXX."],
+    "D": ["XXXXXX..", "XX...XX.", "XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX...XX.", "XXXXXX.."],
+    "F": ["XXXXXXXX", "XXXXXXXX", "XX......", "XXXXXX..", "XXXXXX..", "XX......", "XX......", "XX......"],
+    "G": ["..XXXXX.", ".XX...XX", "XX......", "XX..XXXX", "XX....XX", "XX....XX", ".XX...XX", "..XXXXX."],
+    "H": ["XX....XX", "XX....XX", "XX....XX", "XXXXXXXX", "XXXXXXXX", "XX....XX", "XX....XX", "XX....XX"],
+    "J": ["....XXXX", ".....XX.", ".....XX.", ".....XX.", ".....XX.", "XX...XX.", ".XX..XX.", "..XXXX.."],
+    "K": ["XX...XX.", "XX..XX..", "XX.XX...", "XXXX....", "XXXX....", "XX.XX...", "XX..XX..", "XX...XX."],
+    "L": ["XX......", "XX......", "XX......", "XX......", "XX......", "XX......", "XXXXXXXX", "XXXXXXXX"],
+    "P": ["XXXXXX..", "XX...XX.", "XX...XX.", "XXXXXX..", "XX......", "XX......", "XX......", "XX......"],
+    "R": ["XXXXXX..", "XX...XX.", "XX...XX.", "XXXXXX..", "XX.XX...", "XX..XX..", "XX...XX.", "XX....XX"],
+    "S": ["..XXXXX.", ".XX...XX", "XX......", "..XXXX..", ".....XX.", "......XX", "XX...XX.", ".XXXXX.."],
+    "T": ["XXXXXXXX", "XXXXXXXX", "...XX...", "...XX...", "...XX...", "...XX...", "...XX...", "...XX..."],
+    "V": ["XX....XX", "XX....XX", "XX....XX", "XX....XX", ".XX..XX.", ".XX..XX.", "..XXXX..", "...XX..."],
+    "W": ["XX....XX", "XX....XX", "XX....XX", "XX....XX", "XX.XX.XX", "XXXXXXXX", "XXX..XXX", "XX....XX"],
+    "Y": ["XX....XX", "XX....XX", ".XX..XX.", "..XXXX..", "...XX...", "...XX...", "...XX...", "...XX..."],
+    "Z": ["XXXXXXXX", ".....XX.", "....XX..", "...XX...", "..XX....", ".XX.....", "XX......", "XXXXXXXX"],
+    "!": ["...XX...", "...XX...", "...XX...", "...XX...", "...XX...", "........", "...XX...", "...XX..."],
+    "+": ["........", "...XX...", "...XX...", "XXXXXXXX", "XXXXXXXX", "...XX...", "...XX...", "........"],
+    "#": [".XX..XX.", "XXXXXXXX", ".XX..XX.", ".XX..XX.", ".XX..XX.", "XXXXXXXX", ".XX..XX.", "........"],
+}
 
 # Small 3x5 digits, so numbers up to 99 fit on the 8x8 matrix (see number_bitmap).
 DIGITS = {
