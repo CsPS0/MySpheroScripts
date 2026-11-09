@@ -1071,6 +1071,35 @@ let lowPowerMode = (typeof localStorage !== "undefined" && localStorage.getItem(
 let lastArenaFrame = 0;
 const ARENA_FPS_INTERVAL = 1000 / 30; // Solid 30 FPS cap for smooth, lightweight rendering
 
+function resolveRobotCollisions(robots) {
+  if (!robots || robots.length < 2) return;
+  const minDist = 9.0; // cm (robot diameter)
+  for (let iter = 0; iter < 2; iter++) {
+    for (let i = 0; i < robots.length; i++) {
+      const a = robots[i];
+      for (let j = i + 1; j < robots.length; j++) {
+        const b = robots[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < minDist) {
+          const overlap = minDist - dist;
+          const nx = dist > 0.001 ? dx / dist : Math.cos(i * 1.5 + j * 0.7);
+          const ny = dist > 0.001 ? dy / dist : Math.sin(i * 1.5 + j * 0.7);
+          a.x -= nx * overlap * 0.5;
+          a.y -= ny * overlap * 0.5;
+          b.x += nx * overlap * 0.5;
+          b.y += ny * overlap * 0.5;
+          if (iter === 0 && ((a.speed && a.speed > 3) || (b.speed && b.speed > 3))) {
+            shakeWobble[a.name] = Date.now() + 250;
+            shakeWobble[b.name] = Date.now() + 250;
+          }
+        }
+      }
+    }
+  }
+}
+
 function renderArena(timestamp) {
   if (!canvas || !actx) return;
   requestAnimationFrame(renderArena);
@@ -1086,6 +1115,9 @@ function renderArena(timestamp) {
     return;
   }
   lastArenaFrame = timestamp || performance.now();
+
+  // Prevent robots from hovering or overlapping each other in arena
+  resolveRobotCollisions(arenaRobots);
 
   const w = canvas.width, h = canvas.height;
   actx.clearRect(0, 0, w, h);
@@ -1573,6 +1605,7 @@ function runClientDance() {
     }
 
     prevSection = section;
+    resolveRobotCollisions(clientRobots);
     updateTelemetry({ robots: clientRobots });
   }, 40);
 }
@@ -1635,6 +1668,7 @@ function runClientRoam() {
       r.heading = (Math.atan2(w.vx, w.vy) * 180 / Math.PI + 360) % 360;
       r.matrix = makeMatrix("Arrow", r.baseColor);
     });
+    resolveRobotCollisions(clientRobots);
     updateTelemetry({ robots: clientRobots });
   }, 40);
 }
@@ -1659,6 +1693,7 @@ function runClientDrive() {
       }
     });
 
+    resolveRobotCollisions(clientRobots);
     updateTelemetry({ robots: clientRobots });
   }, 33);
 }
