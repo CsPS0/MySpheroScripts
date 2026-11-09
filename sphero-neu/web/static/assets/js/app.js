@@ -263,6 +263,8 @@ const I18N = {
     party_drift: "Finom mozgás",
     party_drift_on: "Be (kóborlás)",
     party_drift_off: "Ki",
+    party_save_prefs: "Beállítások mentése",
+    party_prefs_saved: "Elmentve! (Megmarad új körben is)",
 
     fleet_title: "Robotok",
     btn_refresh_pool: "Újrakeresés",
@@ -440,6 +442,8 @@ const I18N = {
     party_drift: "Gentle drift",
     party_drift_on: "On (wander)",
     party_drift_off: "Off",
+    party_save_prefs: "Save preferences",
+    party_prefs_saved: "Saved! (Retained on new round)",
 
     fleet_title: "Robots",
     btn_refresh_pool: "Rescan",
@@ -1583,7 +1587,9 @@ function startProgram(id) {
     clientStart(id);
     return;
   }
-  fetch(`/api/start/${id}`, { method: "POST" })
+  const body = partyConfig && partyConfig[id] ? JSON.stringify(partyConfig[id]) : null;
+  const headers = body ? { "Content-Type": "application/json" } : {};
+  fetch(`/api/start/${id}`, { method: "POST", headers, body })
     .then((r) => { if (!r.ok) clientStart(id); })
     .catch(() => clientStart(id));
 }
@@ -2552,7 +2558,7 @@ function handleClientGameAction(body) {
         if (clientSimState.playerIdx >= clientSimState.sequence.length) {
           playVictory();
           clientSimState.level++;
-          clientSimState.sequence.push(Math.floor(Math.random() * 4));
+          clientSimState.sequence.push(Math.floor(Math.random() * (clientRobots.length || 4)));
           setTimeout(playSimonSequence, 1200);
         }
       } else {
@@ -2568,7 +2574,9 @@ function handleClientGameAction(body) {
 
   // Whack-a-Mole
   if (state.running === "mole" && clientSimState) {
-    if (action === "tap") {
+    if (action === "start") {
+      runClientMole();
+    } else if (action === "tap") {
       const tappedIdx = body.cell - 1;
       if (tappedIdx === clientSimState.activeMole) {
         clientSimState.score++;
@@ -2689,9 +2697,6 @@ for (const [id, action] of [["ttt-new", "new"], ["ttt-recount", "recount"], ["tt
 function renderParty() {
   const g = gameState && gameState.kind === "party" ? gameState : null;
   if (!g) return;
-  if (g.speed && partyConfig[g.game]) partyConfig[g.game].speed = g.speed;
-  if (g.layout && partyConfig[g.game]) partyConfig[g.game].layout = g.layout;
-  if (typeof g.drift === "boolean" && partyConfig[g.game]) partyConfig[g.game].drift = g.drift;
   renderPartySettings();
 
   if ($("party-status")) $("party-status").textContent = g.status || programTitle(g.game);
@@ -2731,7 +2736,12 @@ function renderParty() {
     b.querySelector("small").textContent = c.robot || "";
   });
 }
-if ($("party-start")) $("party-start").onclick = () => sendGameAction({ action: "start" });
+if ($("party-start")) {
+  $("party-start").onclick = () => {
+    const cfg = (partyConfig && partyConfig[selectedGame]) ? partyConfig[selectedGame] : undefined;
+    sendGameAction({ action: "start", config: cfg });
+  };
+}
 
 let partyConfig = {
   simon: { speed: "normal", layout: "3x3", drift: false },
@@ -2759,6 +2769,21 @@ function saveAndSyncPartyConfig(gameId) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ game: gameId, config: partyConfig[gameId] }),
     }).catch(() => {});
+  }
+}
+
+let partySaveTimer = null;
+function savePartyPreferences() {
+  const game = selectedGame;
+  if (!["simon", "mole"].includes(game)) return;
+  saveAndSyncPartyConfig(game);
+  const hint = $("party-prefs-saved-hint");
+  if (hint) {
+    hint.hidden = false;
+    clearTimeout(partySaveTimer);
+    partySaveTimer = setTimeout(() => {
+      hint.hidden = true;
+    }, 2500);
   }
 }
 
@@ -2791,6 +2816,10 @@ function renderPartySettings() {
 }
 
 function initPartySettingsControls() {
+  const saveBtn = $("btn-save-party-prefs");
+  if (saveBtn) {
+    saveBtn.onclick = () => savePartyPreferences();
+  }
   const speedSeg = $("party-speed-seg");
   if (speedSeg) {
     speedSeg.querySelectorAll("button").forEach(btn => {
@@ -3549,6 +3578,9 @@ function handleWsMessage(e) {
     if (msg.config) {
       if (msg.config.simon) partyConfig.simon = { ...partyConfig.simon, ...msg.config.simon };
       if (msg.config.mole) partyConfig.mole = { ...partyConfig.mole, ...msg.config.mole };
+      try {
+        localStorage.setItem("sphero_party_config", JSON.stringify(partyConfig));
+      } catch (e) {}
       renderPartySettings();
     }
   } else if (msg.type === "calibration") {
