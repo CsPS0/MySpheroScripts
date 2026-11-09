@@ -839,3 +839,31 @@ body.role-controller .calib-row input { height: 36px; }
 .btn-link:hover { background: var(--panel-3); border-color: var(--accent); }
 .btn-link.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-link.primary:hover { background: var(--accent-2); }
+.docs-subgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.docs-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.docs-section h4 {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+}
+.docs-viewer {
+  max-height: 360px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 8px;
+}

@@ -14,7 +14,7 @@ try {
 } catch (e) {}
 </script>
 <title>Sphero BOLT &bull; Neumann Bemutató</title>
-<link rel="stylesheet" href="assets/css/styles.css?v=7">
+<link rel="stylesheet" href="assets/css/styles.css?v=8">
 <script src="assets/js/qrcode.min.js"></script>
 </head>
 <body>
@@ -88,6 +88,9 @@ try {
   <div class="topbar-actions">
     <button id="btn-bluetooth" class="ghost" type="button" hidden>
       <svg class="icon"><use href="#i-bt"/></svg><span data-i18n="connect_btn">Csatlakozás</span>
+    </button>
+    <button id="btn-docs" class="ghost host-only" type="button" data-i18n-title="docs_btn_title">
+      <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span class="hide-sm" data-i18n="tab_docs">Útmutató</span>
     </button>
     <button id="btn-log" class="ghost host-only" type="button" data-i18n-title="log_title">
       <svg class="icon"><use href="#i-log"/></svg><span class="hide-sm" data-i18n="log_btn">Napló</span>
@@ -182,17 +185,17 @@ try {
 
     <section class="panel control-panel">
       <div class="tabs host-only" role="tablist">
-        <button class="tab active" type="button" data-tab="drive" role="tab">
-          <svg class="icon"><use href="#i-joy"/></svg><span data-i18n="tab_drive">Vezetés</span>
+        <button class="tab active" type="button" data-tab="drive" role="tab" aria-selected="true">
+          <svg class="icon" aria-hidden="true"><use href="#i-joy"/></svg><span data-i18n="tab_drive">Vezetés</span>
         </button>
-        <button class="tab" type="button" data-tab="shows" role="tab">
-          <svg class="icon"><use href="#i-star"/></svg><span data-i18n="tab_shows">Műsorok</span>
+        <button class="tab" type="button" data-tab="shows" role="tab" aria-selected="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg><span data-i18n="tab_shows">Műsorok</span>
         </button>
-        <button class="tab" type="button" data-tab="games" role="tab">
-          <svg class="icon"><use href="#i-grid"/></svg><span data-i18n="tab_games">Játékok</span>
+        <button class="tab" type="button" data-tab="games" role="tab" aria-selected="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span data-i18n="tab_games">Játékok</span>
         </button>
-        <button class="tab" type="button" data-tab="docs" role="tab">
-          <svg class="icon"><use href="#i-book"/></svg><span data-i18n="tab_docs">Útmutató</span>
+        <button class="tab" type="button" data-tab="docs" role="tab" aria-selected="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span data-i18n="tab_docs">Útmutató</span>
         </button>
       </div>
 
@@ -345,7 +348,7 @@ try {
         <div class="docs-grid">
           <div class="docs-card">
             <div class="docs-card-head">
-              <svg class="icon"><use href="#i-globe"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>
               <h3 data-i18n="docs_standalone_title">1. Önálló weboldal (Telepítés nélkül)</h3>
             </div>
             <p class="muted small" data-i18n="docs_standalone_desc">A weboldal szerver nélkül, közvetlenül a böngészőben is működik (GitHub Pages vagy az index.html megnyitásával).</p>
@@ -355,38 +358,41 @@ try {
             </ul>
             <div class="docs-actions">
               <a class="btn-link" href="https://csps0.github.io/MySpheroScripts/" target="_blank" rel="noopener">
-                <svg class="icon"><use href="#i-globe"/></svg><span data-i18n="docs_open_live">Élő webes verzió megnyitása</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span data-i18n="docs_open_live">Élő webes verzió megnyitása</span>
               </a>
             </div>
           </div>
 
           <div class="docs-card">
             <div class="docs-card-head">
-              <svg class="icon"><use href="#i-download"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
               <h3 data-i18n="docs_zip_title">2. Letöltés egyetlen ZIP csomagban</h3>
             </div>
-            <p class="muted small" data-i18n="docs_zip_desc">Git fiók és parancssor nélkül is letöltheted a teljes csomagot egyetlen tömörített fájlban.</p>
+            <p class="muted small" data-i18n="docs_zip_desc">Git fiók és parancssor nélkül is letöltheted a teljes csomagot egyetlen tömörített fájlban (helyi szerverről vagy GitHubról).</p>
             <ul class="docs-list">
               <li data-i18n="docs_zip_1">Töltsd le és csomagold ki a ZIP fájlt egy tetszőleges mappába.</li>
               <li data-i18n="docs_zip_2">Önálló módhoz nyisd meg az index.html fájlt, vagy teljes szerver módhoz indítsd el a start.bat (Windows) / ./start.sh (Linux/macOS) fájlt.</li>
             </ul>
             <div class="docs-actions">
-              <a class="btn-link primary" href="https://github.com/CsPS0/MySpheroScripts/archive/refs/heads/main.zip" target="_blank" rel="noopener">
-                <svg class="icon"><use href="#i-download"/></svg><span data-i18n="docs_download_zip">Teljes ZIP csomag letöltése</span>
+              <a class="btn-link primary" href="/api/download-zip" download="MySpheroScripts.zip">
+                <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="docs_local_zip">Helyi ZIP csomag letöltése</span>
+              </a>
+              <a class="btn-link" href="https://github.com/CsPS0/MySpheroScripts/archive/refs/heads/main.zip" target="_blank" rel="noopener">
+                <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="docs_download_zip">GitHub ZIP letöltése</span>
               </a>
               <a class="btn-link" href="https://github.com/CsPS0/MySpheroScripts" target="_blank" rel="noopener">
-                <svg class="icon"><use href="#i-book"/></svg><span data-i18n="docs_open_repo">GitHub adattár</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span data-i18n="docs_open_repo">GitHub adattár</span>
               </a>
             </div>
           </div>
 
           <div class="docs-card">
             <div class="docs-card-head">
-              <svg class="icon"><use href="#i-log"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-log"/></svg>
               <h3 data-i18n="docs_git_title">3. Git klónozás &amp; Helyi Flotta Szerver (15 robotig)</h3>
             </div>
             <p class="muted small" data-i18n="docs_git_desc">Több robot egyidejű Bluetooth vezérléséhez, QR-kódos telefonos irányításhoz és távoli Admin belépéshez futtasd a Python szervert:</p>
-            <pre class="docs-code"><code>git clone https://github.com/CsPS0/MySpheroScripts.git
+            <pre class="docs-code" tabindex="0"><code>git clone https://github.com/CsPS0/MySpheroScripts.git
 cd MySpheroScripts/sphero-neu
 python -m venv .venv
 # Windows:
@@ -396,9 +402,44 @@ python web/server.py --sim
 source .venv/bin/activate &amp;&amp; pip install -r requirements.txt
 python web/server.py</code></pre>
             <ul class="docs-list">
-              <li data-i18n="docs_git_1">Nyisd meg a http://localhost:8080 címet; a diákok a QR-kód beolvasásával csatlakozhatnak (1: Piros, 2: Zöld, 3: Kék robot).</li>
+              <li data-i18n="docs_git_1">Nyisd meg a http://localhost:8080 (vagy http://localhost:8080/docs) címet; a diákok a QR-kód beolvasásával csatlakozhatnak (1: Piros, 2: Zöld, 3: Kék robot).</li>
               <li data-i18n="docs_git_2">Távoli telefonos vezérléshez használd a felső sáv Admin gombját (alapértelmezett jelszó: admin1234 vagy ADMIN_PASSWORD környezeti változó).</li>
             </ul>
+          </div>
+
+          <div class="docs-card" id="docs-local-guide">
+            <div class="docs-card-head">
+              <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg>
+              <h3 data-i18n="docs_local_guide_title">4. Helyi Dokumentáció &amp; Bemutató Útmutató (Offline is elérhető)</h3>
+            </div>
+            <p class="muted small" data-i18n="docs_local_guide_desc">Minden műsor, játék és beállítás részletes leírása közvetlenül a helyi felületen, internetkapcsolat nélkül is:</p>
+            <div class="docs-subgrid">
+              <div class="docs-section">
+                <h4 data-i18n="docs_shows_head">Műsorok (Shows)</h4>
+                <ul class="docs-list">
+                  <li data-i18n="docs_shows_neu">Neumann-formáció (7 robot): N-E-U-M-A-N-N kirajzolása egy sorban. Iránytűs észak-igazítás vagy kézi célzás, 90°-os betűforgatás, tükrözés és 15°-os robotirány-finomhangolás.</li>
+                  <li data-i18n="docs_shows_dance">Szinkrontánc (1–15 robot): Számozott sorba állítás (1..15), kihagyható robotok, szivárványhullám, ütközéses roham (robbanás hanggal), szóló táncok és hazatérés.</li>
+                  <li data-i18n="docs_shows_roam">Önálló bolyongás (1–15 robot): Minden robot 25 cm-es körzetben kóborol rugalmas ütközésfizikával, majd Leállításkor visszatér a helyére.</li>
+                </ul>
+              </div>
+              <div class="docs-section">
+                <h4 data-i18n="docs_games_head">Vezetés &amp; Minijátékok</h4>
+                <ul class="docs-list">
+                  <li data-i18n="docs_games_drive">Botkormányos Vezetés (1–3 robot): Irányítás egérrel, érintéssel, WASD/nyilakkal vagy 3 QR-kódos telefonnal, -180°..+180° kalibrálással.</li>
+                  <li data-i18n="docs_games_ttt">Amőba / Tic-Tac-Toe (9 robot): 3x3-as rács számozással, fizikai rázás/érintés érzékeléssel vagy webes kattintással.</li>
+                  <li data-i18n="docs_games_party">Memóriajáték (9), Vakondvadászat (9), Forró krumpli (1) &amp; Kő-papír-olló (2): Menthető sebesség, 3x3/véletlen elrendezés és finom kóborlás (Gentle drift).</li>
+                </ul>
+              </div>
+            </div>
+            <div class="docs-actions">
+              <button id="btn-view-usage" class="ghost sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span data-i18n="docs_view_usage">USAGE.md megnyitása helyben</span>
+              </button>
+              <button id="btn-view-readme" class="ghost sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-book"/></svg><span data-i18n="docs_view_readme">README.md megnyitása helyben</span>
+              </button>
+            </div>
+            <pre id="local-doc-viewer" class="docs-code docs-viewer" tabindex="0" hidden><code id="local-doc-content"></code></pre>
           </div>
         </div>
       </div>
@@ -544,6 +585,6 @@ python web/server.py</code></pre>
   </div>
 </div>
 
-<script src="assets/js/app.js?v=7" defer></script>
+<script src="assets/js/app.js?v=8" defer></script>
 </body>
 </html>

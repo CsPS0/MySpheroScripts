@@ -183,21 +183,35 @@ const I18N = {
     tab_shows: "Műsorok",
     tab_games: "Játékok",
     tab_docs: "Útmutató",
+    docs_btn_title: "Használati útmutató és dokumentáció megnyitása",
     docs_standalone_title: "1. Önálló weboldal (Telepítés nélkül)",
     docs_standalone_desc: "A weboldal szerver nélkül, közvetlenül a böngészőben is működik (GitHub Pages vagy az index.html megnyitásával).",
     docs_standalone_1: "Beépített 60 FPS fizikai és 8x8 LED mátrix szimulátor minden műsorhoz (Neumann, Szinkrontánc, Bolyongás) és játékhoz.",
     docs_standalone_2: "Közvetlen Web Bluetooth kapcsolat: kattints a felső sávban a Csatlakozás gombra (Chrome / Edge / Bluefy böngészőben) valódi Sphero BOLT irányításához.",
     docs_open_live: "Élő webes verzió megnyitása",
     docs_zip_title: "2. Letöltés egyetlen ZIP csomagban",
-    docs_zip_desc: "Git fiók és parancssor nélkül is letöltheted a teljes csomagot egyetlen tömörített fájlban.",
+    docs_zip_desc: "Git fiók és parancssor nélkül is letöltheted a teljes csomagot egyetlen tömörített fájlban (helyi szerverről vagy GitHubról).",
     docs_zip_1: "Töltsd le és csomagold ki a ZIP fájlt egy tetszőleges mappába.",
     docs_zip_2: "Önálló módhoz nyisd meg az index.html fájlt, vagy teljes szerver módhoz indítsd el a start.bat (Windows) / ./start.sh (Linux/macOS) fájlt.",
-    docs_download_zip: "Teljes ZIP csomag letöltése",
+    docs_local_zip: "Helyi ZIP csomag letöltése",
+    docs_download_zip: "GitHub ZIP letöltése",
     docs_open_repo: "GitHub adattár",
     docs_git_title: "3. Git klónozás & Helyi Flotta Szerver (15 robotig)",
     docs_git_desc: "Több robot egyidejű Bluetooth vezérléséhez, QR-kódos telefonos irányításhoz és távoli Admin belépéshez futtasd a Python szervert:",
-    docs_git_1: "Nyisd meg a http://localhost:8080 címet; a diákok a QR-kód beolvasásával csatlakozhatnak (1: Piros, 2: Zöld, 3: Kék robot).",
+    docs_git_1: "Nyisd meg a http://localhost:8080 (vagy http://localhost:8080/docs) címet; a diákok a QR-kód beolvasásával csatlakozhatnak (1: Piros, 2: Zöld, 3: Kék robot).",
     docs_git_2: "Távoli telefonos vezérléshez használd a felső sáv Admin gombját (alapértelmezett jelszó: admin1234 vagy ADMIN_PASSWORD környezeti változó).",
+    docs_local_guide_title: "4. Helyi Dokumentáció & Bemutató Útmutató (Offline is elérhető)",
+    docs_local_guide_desc: "Minden műsor, játék és beállítás részletes leírása közvetlenül a helyi felületen, internetkapcsolat nélkül is:",
+    docs_shows_head: "Műsorok (Shows)",
+    docs_shows_neu: "Neumann-formáció (7 robot): N-E-U-M-A-N-N kirajzolása egy sorban. Iránytűs észak-igazítás vagy kézi célzás, 90°-os betűforgatás, tükrözés és 15°-os robotirány-finomhangolás.",
+    docs_shows_dance: "Szinkrontánc (1–15 robot): Számozott sorba állítás (1..15), kihagyható robotok, szivárványhullám, ütközéses roham (robbanás hanggal), szóló táncok és hazatérés.",
+    docs_shows_roam: "Önálló bolyongás (1–15 robot): Minden robot 25 cm-es körzetben kóborol rugalmas ütközésfizikával, majd Leállításkor visszatér a helyére.",
+    docs_games_head: "Vezetés & Minijátékok",
+    docs_games_drive: "Botkormányos Vezetés (1–3 robot): Irányítás egérrel, érintéssel, WASD/nyilakkal vagy 3 QR-kódos telefonnal, -180°..+180° kalibrálással.",
+    docs_games_ttt: "Amőba / Tic-Tac-Toe (9 robot): 3x3-as rács számozással, fizikai rázás/érintés érzékeléssel vagy webes kattintással.",
+    docs_games_party: "Memóriajáték (9), Vakondvadászat (9), Forró krumpli (1) & Kő-papír-olló (2): Menthető sebesség, 3x3/véletlen elrendezés és finom kóborlás (Gentle drift).",
+    docs_view_usage: "USAGE.md megnyitása helyben",
+    docs_view_readme: "README.md megnyitása helyben",
     hud_heading: "Irány",
     hud_throttle: "Sebesség",
     steer_robot: "Melyik robotot vezeted?",
@@ -379,21 +393,35 @@ const I18N = {
     tab_shows: "Shows",
     tab_games: "Games",
     tab_docs: "Guide",
+    docs_btn_title: "Open user guide and local documentation",
     docs_standalone_title: "1. Standalone Website (No Installation Needed)",
     docs_standalone_desc: "The dashboard runs directly in the browser without a backend server (via GitHub Pages or opening index.html locally).",
     docs_standalone_1: "Built-in 60 FPS 2D physics & 8x8 LED matrix simulator for all shows (Neumann, Dance, Roam) and minigames.",
     docs_standalone_2: "Direct Web Bluetooth pairing: click Connect in the top bar (in Chrome, Edge, or Bluefy on iOS) to drive a physical Sphero BOLT directly.",
     docs_open_live: "Open Live Web Version",
     docs_zip_title: "2. Download in One Zipped Package",
-    docs_zip_desc: "Download the entire suite as a single .zip archive without needing a Git account or command-line tools.",
+    docs_zip_desc: "Download the entire suite as a single .zip archive without needing a Git account or command-line tools (from the local server or GitHub).",
     docs_zip_1: "Download and extract the ZIP archive into any folder on your computer.",
     docs_zip_2: "Open index.html directly for standalone browser mode, or launch start.bat (Windows) / ./start.sh (Linux/macOS) for the full fleet server.",
-    docs_download_zip: "Download Full ZIP Package",
+    docs_local_zip: "Download Local ZIP Package",
+    docs_download_zip: "Download GitHub ZIP",
     docs_open_repo: "GitHub Repository",
     docs_git_title: "3. Git Clone & Local Fleet Server (Up to 15 Robots)",
     docs_git_desc: "For multi-robot Bluetooth fleet control, QR-code phone controllers, and remote Admin login, run the local Python server:",
-    docs_git_1: "Open http://localhost:8080; students scan the QR code with their phone camera to join (Slot 1: Red, 2: Green, 3: Blue).",
+    docs_git_1: "Open http://localhost:8080 (or http://localhost:8080/docs); students scan the QR code with their phone camera to join (Slot 1: Red, 2: Green, 3: Blue).",
     docs_git_2: "Use the Admin button in the top bar for remote host control from a phone (default password: admin1234 or set ADMIN_PASSWORD).",
+    docs_local_guide_title: "4. Local Documentation & Presentation Guide (Offline-Ready)",
+    docs_local_guide_desc: "Complete reference for all shows, minigames, and controls directly inside the local dashboard without internet access:",
+    docs_shows_head: "Shows & Choreography",
+    docs_shows_neu: "Neumann Formation (7 robots): Displays N-E-U-M-A-N-N in a single row. Supports Compass North auto-alignment or Manual Aim, 90° letter rotation, mirror toggle, and 15° robot yaw tuning.",
+    docs_shows_dance: "Synchronized Dance Show (1–15 robots): Numbered horizontal line (1..15), tap numbers to skip robots, Rainbow Wave, Collision Rush (with explosion sound), Character Solos, and Return Home.",
+    docs_shows_roam: "Autonomous Roam (1–15 robots): Each robot wanders within a 25 cm home radius with elastic collision physics, then returns home on Stop.",
+    docs_games_head: "Driving & Minigames",
+    docs_games_drive: "Joystick Drive (1–3 robots): Steer via mouse/touch joystick, WASD/Arrow keys, or up to 3 QR-connected phones, with -180°..+180° heading calibration.",
+    docs_games_ttt: "Tic-Tac-Toe (9 robots): 3x3 grid with ball numbering and physical tap/shake detection or web grid clicks.",
+    docs_games_party: "Memory / Simon (9), Whack-a-Mole (9), Hot Potato (1) & Rock-Paper-Scissors (2): Persistent Speed, 3x3/Random layout, and Gentle drift wander settings.",
+    docs_view_usage: "Open USAGE.md Locally",
+    docs_view_readme: "Open README.md Locally",
     hud_heading: "Heading",
     hud_throttle: "Speed",
     steer_robot: "Which robot do you drive?",
@@ -695,19 +723,86 @@ function makeSolidMatrix(colorHex) {
 }
 
 // ==========================================
-// 3. Control Tabs (Drive / Shows / Games)
+// 3. Control Tabs (Drive / Shows / Games / Docs)
 // ==========================================
 let activeTab = "drive";
-const TAB_FOR = { drive: "drive", shows: "shows", games: "games", docs: "docs", tictactoe: "games", arena: null };
+const TAB_FOR = { drive: "drive", shows: "shows", games: "games", docs: "docs", guide: "docs", tictactoe: "games", arena: null };
 
 function switchTab(tabId) {
   const target = TAB_FOR[tabId] === undefined ? tabId : TAB_FOR[tabId];
   if (!target || document.body.classList.contains("role-controller")) return;
   activeTab = target;
-  document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === target));
+  document.querySelectorAll(".tab").forEach((tab) => {
+    const isAct = tab.dataset.tab === target;
+    tab.classList.toggle("active", isAct);
+    tab.setAttribute("aria-selected", isAct ? "true" : "false");
+  });
   document.querySelectorAll(".tab-page").forEach((page) => page.classList.toggle("active", page.id === `tab-${target}`));
 }
-document.querySelectorAll(".tab").forEach((btn) => { btn.onclick = () => switchTab(btn.dataset.tab); });
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+if ($("btn-docs")) {
+  $("btn-docs").addEventListener("click", () => switchTab("docs"));
+}
+
+function checkUrlTab() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const qTab = (params.get("tab") || "").toLowerCase();
+    const hash = (window.location.hash || "").replace(/^#/, "").toLowerCase();
+    if (qTab && TAB_FOR[qTab]) {
+      switchTab(qTab);
+    } else if (hash && TAB_FOR[hash]) {
+      switchTab(hash);
+    }
+  } catch (e) {}
+}
+window.addEventListener("hashchange", checkUrlTab);
+checkUrlTab();
+
+let activeLocalDoc = null;
+async function toggleLocalDoc(docName) {
+  const viewer = $("local-doc-viewer");
+  const codeEl = $("local-doc-content");
+  if (!viewer || !codeEl) return;
+  if (!viewer.hidden && activeLocalDoc === docName) {
+    viewer.hidden = true;
+    activeLocalDoc = null;
+    return;
+  }
+  activeLocalDoc = docName;
+  viewer.hidden = false;
+  codeEl.textContent = "Loading " + docName + "...";
+  try {
+    const r = await fetch(`/${docName}`);
+    if (r.ok) {
+      codeEl.textContent = await r.text();
+      return;
+    }
+  } catch (e) {}
+  try {
+    const r2 = await fetch("/api/docs");
+    if (r2.ok) {
+      const data = await r2.json();
+      const key = docName.toLowerCase().startsWith("usage") ? "usage" : "readme";
+      if (data && data[key]) {
+        codeEl.textContent = data[key];
+        return;
+      }
+    }
+  } catch (e2) {}
+  codeEl.textContent = `# ${docName}\n\n` +
+    `1. Standalone Web Mode: Open index.html directly in your browser.\n` +
+    `2. Local Fleet Server: Run 'python web/server.py --sim' inside sphero-neu/ and open http://localhost:8080\n` +
+    `3. Full Markdown Files: Open ${docName} in the repository root folder.`;
+}
+if ($("btn-view-usage")) {
+  $("btn-view-usage").addEventListener("click", () => toggleLocalDoc("USAGE.md"));
+}
+if ($("btn-view-readme")) {
+  $("btn-view-readme").addEventListener("click", () => toggleLocalDoc("README.md"));
+}
 
 // ==========================================
 // 4. Activity Log (slide-over drawer)
