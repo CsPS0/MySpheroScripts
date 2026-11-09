@@ -1404,7 +1404,15 @@ function handleCanvasPointer(clientX, clientY) {
     shakeWobble[robot.name] = Date.now() + 600;
     playPop();
     identifyRobot(info.id);
-    sendShake(info.id, robot.name);
+
+    let targetCell = info.id;
+    if (state.running === "tictactoe" && gameState && Array.isArray(gameState.cells)) {
+      const cellIdx = gameState.cells.findIndex((c) => c && (c.robot === robot.name || c.robot === info.name));
+      if (cellIdx >= 0) {
+        targetCell = cellIdx + 1;
+      }
+    }
+    sendShake(targetCell, robot.name);
   }
 }
 
@@ -2243,21 +2251,21 @@ function runClientTtt() {
     y: pos.y,
     heading: 0,
     speed: 0,
-    front_led: "#ffffff",
+    front_led: "#ff3b3b",
     back_led: "#0000ff",
-    matrix: makeMatrix("?", "#f1c40f", tttCfg ? tttCfg.rotation : 0, tttCfg ? tttCfg.mirror : false),
+    matrix: makeMatrix(String(i + 1), "#c8c8c8", tttCfg ? tttCfg.rotation : 0, tttCfg ? tttCfg.mirror : false),
     homeX: pos.x,
     homeY: pos.y,
-    baseColor: "#f1c40f",
+    baseColor: "#c8c8c8",
   }));
 
   gameState = {
     kind: "tictactoe",
-    phase: "numbering",
+    phase: "play",
     board: Array(9).fill(""),
     turn: "X",
     robots: 9,
-    numbered: 0,
+    numbered: 9,
     next: 1,
     cells: clientRobots.map(r => ({ robot: r.name, connected: true })),
     line: null,
@@ -2339,6 +2347,12 @@ function handleClientGameAction(body) {
           playTone(250, "sine", 0.4, 0.2);
         } else {
           gameState.turn = gameState.turn === "X" ? "O" : "X";
+          const nextCol = gameState.turn === "X" ? "#ff3b3b" : "#3498db";
+          clientRobots.forEach((r, i) => {
+            if (!gameState.board[i]) {
+              r.front_led = nextCol;
+            }
+          });
         }
       }
 
@@ -2351,7 +2365,7 @@ function handleClientGameAction(body) {
       gameState.line = null;
       clientRobots.forEach((r, i) => {
         r.matrix = makeMatrix(String(i + 1), "#c8c8c8", tttCfg.rotation, tttCfg.mirror);
-        r.front_led = "#ffffff";
+        r.front_led = "#ff3b3b";
       });
       renderGame();
       updateTelemetry({ robots: clientRobots });
@@ -2450,10 +2464,9 @@ function sendShake(cell = 1, robot = "") {
 function handleClientShake(cell, robot) {
   if (state.running === "tictactoe") {
     if (gameState && gameState.phase === "numbering") {
-      sendGameAction({ action: "start" });
-    } else {
-      sendGameAction({ action: "play", cell });
+      handleClientGameAction({ action: "start" });
     }
+    sendGameAction({ action: "play", cell });
   } else if (state.running === "simon") {
     sendGameAction({ action: "tap", cell });
   } else if (state.running === "mole") {

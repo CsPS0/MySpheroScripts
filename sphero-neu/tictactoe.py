@@ -288,7 +288,7 @@ class Game:
             d.glyph(GLYPHS["?"], WAIT_COLOR, self.cfg["rotation"], self.cfg["mirror"])
             d.led(WAIT_COLOR)
         print("Numbering: shake the balls in reading order, top left first.", flush=True)
-        if not self.displays:
+        if not self.displays or sphero_ble.is_simulation():
             self.new()
 
     def number(self, r):
@@ -318,7 +318,16 @@ class Game:
 
     def new(self):
         """New game with the current numbering."""
-        for r in list(self.displays):                 # unnumbered robots sit out
+        # Auto-assign any unnumbered connected robots to available squares in order
+        used_cells = set(self.cell_of.values())
+        free_cells = [c for c in range(9) if c not in used_cells]
+        for r in range(len(self.displays)):
+            if r not in self.cell_of and free_cells:
+                cell = free_cells.pop(0)
+                self.cell_of[r] = cell
+                print(f"  {self.names[r]} assigned to square {cell + 1}", flush=True)
+
+        for r in list(self.displays):                 # unnumbered robots sit out (if > 9)
             if r not in self.cell_of:
                 self.displays[r].glyph(GLYPHS["?"], OFF, 0, False)
                 self.displays[r].led(OFF)
@@ -490,13 +499,21 @@ def main():
                         changed = True
                 elif cmd and cmd.startswith("play "):
                     with contextlib.suppress(ValueError):
-                        changed |= game.play(int(cmd.split()[1]) - 1, "web page")
+                        cell_idx = int(cmd.split()[1]) - 1
+                        if game.phase == "numbering":
+                            game.new()
+                            changed = True
+                        changed |= game.play(cell_idx, "web page")
                 elif cmd and cmd.startswith("tap "):
                     with contextlib.suppress(ValueError):
                         c = int(cmd.split()[1]) - 1
                         if game.phase == "numbering":
                             if 0 <= c < len(robots):
                                 changed |= game.shake(c)
+                            else:
+                                game.new()
+                                changed = True
+                                changed |= game.play(c, "web page")
                         else:
                             changed |= game.play(c, "web page")
                 elif cmd and cmd.startswith("config "):
