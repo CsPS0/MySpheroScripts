@@ -11,24 +11,33 @@ import colorsys
 import json
 import math
 import os
+import re
 import sys
 import threading
 import time
+from pathlib import Path
 from spherov2.commands.io import IO
 from spherov2.sphero_edu import SpheroEduAPI
 from spherov2.types import Color
 
 # Standard simulated robots (names, addresses, initial home coordinates in cm)
+# 15 robots distributed across arena (rows of 3, 6, 6) so they never overlap in standby
 DEFAULT_ROBOT_SPECS = [
-    ("SB-3FF5", "D4:22:CD:00:3F:F5", 0.0, 0.0, Color(255, 0, 0)),
-    ("SB-034E", "D4:22:CD:00:03:4E", 15.0, 0.0, Color(0, 255, 0)),
-    ("SB-61A9", "D4:22:CD:00:61:A9", 30.0, 0.0, Color(0, 80, 255)),
-    ("SB-1111", "D4:22:CD:00:11:11", 45.0, 0.0, Color(255, 200, 0)),
-    ("SB-2222", "D4:22:CD:00:22:22", 60.0, 0.0, Color(255, 0, 200)),
-    ("SB-3333", "D4:22:CD:00:33:33", 75.0, 0.0, Color(0, 230, 230)),
-    ("SB-4444", "D4:22:CD:00:44:44", 90.0, 0.0, Color(255, 90, 0)),
-    ("SB-5555", "D4:22:CD:00:55:55", 105.0, 0.0, Color(255, 255, 255)),
-    ("SB-6666", "D4:22:CD:00:66:66", 120.0, 0.0, Color(130, 0, 255)),
+    ("SB-3FF5", "D4:22:CD:00:3F:F5", -25.0, 30.0, Color(255, 59, 59)),    # 1 Red
+    ("SB-034E", "D4:22:CD:00:03:4E", 0.0, 30.0, Color(46, 204, 113)),     # 2 Green
+    ("SB-61A9", "D4:22:CD:00:61:A9", 25.0, 30.0, Color(52, 152, 219)),    # 3 Blue
+    ("SB-1111", "D4:22:CD:00:11:11", -35.0, 0.0, Color(241, 196, 15)),    # 4 Yellow
+    ("SB-2222", "D4:22:CD:00:22:22", -20.0, 0.0, Color(232, 67, 147)),    # 5 Pink
+    ("SB-3333", "D4:22:CD:00:33:33", -5.0, 0.0, Color(0, 206, 201)),      # 6 Cyan
+    ("SB-4444", "D4:22:CD:00:44:44", 10.0, 0.0, Color(230, 126, 34)),     # 7 Orange
+    ("SB-5555", "D4:22:CD:00:55:55", 25.0, 0.0, Color(255, 255, 255)),    # 8 White
+    ("SB-6666", "D4:22:CD:00:66:66", 40.0, 0.0, Color(155, 89, 182)),     # 9 Purple
+    ("SB-7777", "D4:22:CD:00:77:77", -35.0, -30.0, Color(253, 121, 168)), # 10 Soft Pink
+    ("SB-8888", "D4:22:CD:00:88:88", -20.0, -30.0, Color(9, 132, 227)),   # 11 Ocean Blue
+    ("SB-9999", "D4:22:CD:00:99:99", -5.0, -30.0, Color(0, 184, 148)),    # 12 Mint Green
+    ("SB-AAAA", "D4:22:CD:00:AA:AA", 10.0, -30.0, Color(255, 234, 167)),  # 13 Cream Yellow
+    ("SB-BBBB", "D4:22:CD:00:BB:BB", 25.0, -30.0, Color(108, 92, 231)),   # 14 Violet
+    ("SB-CCCC", "D4:22:CD:00:CC:CC", 40.0, -30.0, Color(214, 48, 49)),    # 15 Crimson
 ]
 
 def hex_color(r, g, b):
@@ -299,32 +308,111 @@ class SimulatorManager:
 
     def __init__(self):
         self.toys = {}
-        for name, addr, hx, hy, col in DEFAULT_ROBOT_SPECS:
-            self.toys[name] = SimulatedToy(name, addr, hx, hy, col)
+        for idx, (name, addr, hx, hy, col) in enumerate(DEFAULT_ROBOT_SPECS, start=1):
+            toy = SimulatedToy(name, addr, hx, hy, col)
+            self.toys[name] = toy
+            self.toys[f"BOLT-{idx}"] = toy
         self.active_toys = set()
         self.lock = threading.Lock()
         self.running = True
+
+        prog = os.environ.get("SPHERO_PROGRAM", "")
+        if not prog and sys.argv:
+            for arg in sys.argv:
+                base = Path(arg).stem.lower()
+                if base in ("tictactoe", "neu", "dance", "big_dance", "roam", "drive_keys"):
+                    prog = base
+                    break
+                if arg.lower() in ("simon", "mole", "potato", "rps", "lightshow"):
+                    prog = arg.lower()
+                    break
+        if prog:
+            self.apply_layout(prog)
+
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self.physics_thread.start()
 
-    def get_toy(self, name):
-        name_clean = name.strip().upper()
+    def apply_layout(self, prog_name):
+        prog = (prog_name or "").lower()
+        if "tictactoe" in prog or "ttt" in prog:
+            # 3x3 grid: 1..3 top, 4..6 middle, 7..9 bottom
+            coords = [
+                (-25.0, 50.0), (0.0, 50.0), (25.0, 50.0),
+                (-25.0, 25.0), (0.0, 25.0), (25.0, 25.0),
+                (-25.0, 0.0),  (0.0, 0.0),  (25.0, 0.0),
+            ]
+        elif "neu" in prog:
+            # 7 robots in a row left to right (N-E-U-M-A-N-N)
+            coords = [(-60.0 + i * 20.0, 25.0) for i in range(7)]
+        elif "dance" in prog:
+            # 15 robots in a line
+            coords = [(-70.0 + i * 10.0, 15.0) for i in range(15)]
+        elif "roam" in prog:
+            # 15 robots distributed across arena
+            coords = [(-50.0 + (i % 5) * 25.0, 10.0 + (i // 5) * 35.0) for i in range(15)]
+        elif "simon" in prog or "mole" in prog:
+            coords = [(-20.0, 40.0), (20.0, 40.0), (-20.0, 10.0), (20.0, 10.0)]
+        elif "rps" in prog:
+            coords = [(-20.0, 25.0), (20.0, 25.0)]
+        elif "potato" in prog:
+            coords = [(0.0, 25.0)]
+        elif "drive" in prog:
+            coords = [(-25.0, 30.0), (0.0, 30.0), (25.0, 30.0)]
+        else:
+            coords = [(spec[2], spec[3]) for spec in DEFAULT_ROBOT_SPECS]
+
         with self.lock:
-            if name_clean not in self.toys:
-                self.toys[name_clean] = SimulatedToy(
-                    name_clean, f"D4:22:CD:00:{abs(hash(name_clean)) % 0xFFFF:04X}"
-                )
-            toy = self.toys[name_clean]
-            self.active_toys.add(name_clean)
+            canonical_names = [spec[0] for spec in DEFAULT_ROBOT_SPECS]
+            for idx, (hx, hy) in enumerate(coords):
+                if idx < len(canonical_names):
+                    cname = canonical_names[idx]
+                    if cname in self.toys:
+                        toy = self.toys[cname]
+                        toy.home_x, toy.home_y = hx, hy
+                        toy.x, toy.y = hx, hy
+                        toy.locator_origin_x, toy.locator_origin_y = hx, hy
+                        toy.heading = 0.0
+                        toy.speed = 0.0
+                        toy.target_speed = 0.0
+
+    def get_toy(self, name):
+        name_clean = (name or "BOLT-1").strip().upper()
+        match = re.search(r"SB-[0-9A-F]+", name_clean)
+        if match and match.group(0) in self.toys:
+            name_clean = match.group(0)
+        elif "(" in name_clean:
+            name_clean = name_clean.split("(")[0].strip()
+
+        with self.lock:
+            if name_clean in self.toys:
+                toy = self.toys[name_clean]
+            elif name_clean.startswith("BOLT-") and name_clean[5:].isdigit():
+                idx = int(name_clean[5:]) - 1
+                if 0 <= idx < len(DEFAULT_ROBOT_SPECS):
+                    cname = DEFAULT_ROBOT_SPECS[idx][0]
+                    toy = self.toys[cname]
+                    self.toys[name_clean] = toy
+                else:
+                    toy = SimulatedToy(name_clean, f"D4:22:CD:00:{abs(hash(name_clean)) % 0xFFFF:04X}")
+                    self.toys[name_clean] = toy
+            else:
+                toy = SimulatedToy(name_clean, f"D4:22:CD:00:{abs(hash(name_clean)) % 0xFFFF:04X}")
+                self.toys[name_clean] = toy
+
+            # Always track by canonical toy name (SB-xxxx)
+            self.active_toys.add(toy.name)
             if toy._api is None:
                 SimulatedSpheroEduAPI(toy)
             return toy
 
-    def scan_toys(self, count=9):
+    def scan_toys(self, count=15):
         res = []
         with self.lock:
-            for name, toy in list(self.toys.items())[:count]:
-                res.append((name, toy.address, -50 - (len(res) * 3)))
+            canonical_names = [spec[0] for spec in DEFAULT_ROBOT_SPECS]
+            for name in canonical_names[:count]:
+                if name in self.toys:
+                    toy = self.toys[name]
+                    res.append((name, toy.address, -50 - (len(res) * 3)))
         return res
 
     def _physics_loop(self):
@@ -365,8 +453,12 @@ class SimulatorManager:
     def _emit_telemetry(self):
         telemetry = {"robots": []}
         with self.lock:
-            for name in sorted(self.active_toys):
-                toy = self.toys[name]
+            order_map = {spec[0]: i for i, spec in enumerate(DEFAULT_ROBOT_SPECS)}
+            sorted_names = sorted(self.active_toys, key=lambda n: order_map.get(n, 999))
+            for name in sorted_names:
+                toy = self.toys.get(name)
+                if not toy:
+                    continue
                 with toy.matrix_lock:
                     mat_hex = [
                         [hex_color(r, g, b) for (r, g, b) in row]

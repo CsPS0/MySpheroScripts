@@ -157,6 +157,9 @@ def place_all(apis, toys, cfg, base, sent, old=None):
 
 
 def main():
+    if sphero_ble.is_simulation():
+        import sphero_sim
+        sphero_sim.SimulatorManager.get().apply_layout("neu")
     cfg = letters.load()
     count = len(cfg["letters"])
     names = [f"BOLT-{i + 1}" for i in range(count)]

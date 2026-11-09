@@ -1329,15 +1329,21 @@ let letterCfg = DEFAULT_LETTER_CONFIG;
 
 function initClientRobots(count = 3) {
   const configs = [
-    { name: "BOLT 1", x: 0, y: 0, col: "#ff3b3b", matrixKey: "N" },
-    { name: "BOLT 2", x: 15, y: 0, col: "#2ecc71", matrixKey: "E" },
-    { name: "BOLT 3", x: 30, y: 0, col: "#3498db", matrixKey: "U" },
-    { name: "BOLT 4", x: -15, y: 0, col: "#f1c40f", matrixKey: "1" },
-    { name: "BOLT 5", x: -30, y: 0, col: "#e84393", matrixKey: "2" },
-    { name: "BOLT 6", x: 45, y: 0, col: "#00cec9", matrixKey: "3" },
-    { name: "BOLT 7", x: -45, y: 0, col: "#e67e22", matrixKey: "4" },
-    { name: "BOLT 8", x: 60, y: 0, col: "#ffffff", matrixKey: "5" },
-    { name: "BOLT 9", x: -60, y: 0, col: "#9b59b6", matrixKey: "6" },
+    { name: "BOLT 1", x: -25, y: 30, col: "#ff3b3b", matrixKey: "1" },
+    { name: "BOLT 2", x: 0, y: 30, col: "#2ecc71", matrixKey: "2" },
+    { name: "BOLT 3", x: 25, y: 30, col: "#3498db", matrixKey: "3" },
+    { name: "BOLT 4", x: -35, y: 0, col: "#f1c40f", matrixKey: "4" },
+    { name: "BOLT 5", x: -20, y: 0, col: "#e84393", matrixKey: "5" },
+    { name: "BOLT 6", x: -5, y: 0, col: "#00cec9", matrixKey: "6" },
+    { name: "BOLT 7", x: 10, y: 0, col: "#e67e22", matrixKey: "7" },
+    { name: "BOLT 8", x: 25, y: 0, col: "#ffffff", matrixKey: "8" },
+    { name: "BOLT 9", x: 40, y: 0, col: "#9b59b6", matrixKey: "9" },
+    { name: "BOLT 10", x: -35, y: -30, col: "#fd79a8", matrixKey: "1" },
+    { name: "BOLT 11", x: -20, y: -30, col: "#0984e3", matrixKey: "2" },
+    { name: "BOLT 12", x: -5, y: -30, col: "#00b894", matrixKey: "3" },
+    { name: "BOLT 13", x: 10, y: -30, col: "#ffeaa7", matrixKey: "4" },
+    { name: "BOLT 14", x: 25, y: -30, col: "#6c5ce7", matrixKey: "5" },
+    { name: "BOLT 15", x: 40, y: -30, col: "#d63031", matrixKey: "6" },
   ];
   clientRobots = [];
   for (let i = 0; i < Math.min(count, configs.length); i++) {
@@ -1448,7 +1454,7 @@ function clientStart(id) {
 // Dance Show
 // ------------------------------------------
 function runClientDance() {
-  initClientRobots(3);
+  initClientRobots(15);
   const startTime = Date.now();
   let prevSection = -1;
 
@@ -1578,11 +1584,11 @@ function runClientNeu() {
   // one letter per robot, robots 1-7 in a row left to right
   clientRobots = letterCfg.letters.map((item, i) => ({
     name: `BOLT ${i + 1}`,
-    x: (i - (letterCfg.letters.length - 1) / 2) * 15, y: 0,
+    x: (i - (letterCfg.letters.length - 1) / 2) * 20, y: 25,
     heading: 0, speed: 0,
     front_led: "#ffffff", back_led: "#000000",
     matrix: makeMatrix("Arrow", NEUMANN_COLOR),
-    homeX: (i - (letterCfg.letters.length - 1) / 2) * 15, homeY: 0,
+    homeX: (i - (letterCfg.letters.length - 1) / 2) * 20, homeY: 25,
     baseColor: NEUMANN_COLOR,
   }));
   let step = 0;
@@ -1603,7 +1609,7 @@ function runClientNeu() {
 // Autonomous Roam
 // ------------------------------------------
 function runClientRoam() {
-  initClientRobots(3);
+  initClientRobots(15);
   const wander = clientRobots.map(r => ({
     vx: (Math.random() - 0.5) * 14,
     vy: (Math.random() - 0.5) * 14,

@@ -571,7 +571,11 @@ def read_stdin(commands):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("game", choices=GAMES)
-    game_class = GAMES[parser.parse_args().game]
+    game_arg = parser.parse_args().game
+    game_class = GAMES[game_arg]
+    if sphero_ble.is_simulation():
+        import sphero_sim
+        sphero_sim.SimulatorManager.get().apply_layout(game_arg)
     cfg = tictactoe.load_config()
     with contextlib.ExitStack() as stack:
         robots = tictactoe.connect_robots(cfg, stack, want=game_class.want)

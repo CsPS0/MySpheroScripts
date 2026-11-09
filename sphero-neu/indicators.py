@@ -32,7 +32,7 @@ from spherov2.controls.v2 import Processors
 from spherov2.types import Color
 
 FRONT_LED = Color(255, 255, 255)
-ARROW_TO = "bottom"  # matrix side that faces the front LED: top, bottom, left, right
+ARROW_TO = "top"     # matrix side that faces the front LED: top, bottom, left, right
 NORTH_TURN = 1       # 1 or -1: direction the arrow turns against the robot's turn
 ARROW_POINTS = 270   # floor direction of the NorthArrow: 0 away from you, 90 right, 270 left (west)
 SETTLE = 0.25        # s, the heading must stay this long before the arrow is redrawn

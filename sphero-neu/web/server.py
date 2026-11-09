@@ -54,7 +54,7 @@ PROGRAMS = {
     },
     "roam": {
         "title": "Autonomous Roam",
-        "description": "All 3 robots wander around their own start spot "
+        "description": "All available robots (up to 15) wander around their own start spot "
                        "(25 cm circle) until you press Stop, then drive back home.",
         "args": ["roam.py", "--radius", "25"],
         "moves": True,
@@ -466,6 +466,10 @@ class Runner:
             env = {**os.environ, "PYTHONUNBUFFERED": "1"}
             if self.simulation:
                 env["SPHERO_SIM"] = "1"
+                env["SPHERO_PROGRAM"] = program_id
+                with contextlib.suppress(Exception):
+                    import sphero_sim
+                    sphero_sim.SimulatorManager.get().apply_layout(program_id)
 
             venv_sub = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
             if (ROOT / ".venv" / venv_sub).exists():
@@ -578,6 +582,10 @@ class Runner:
             self.program = None
             self.started = None
             self.last_exit = (program_id, code)
+            if self.simulation:
+                with contextlib.suppress(Exception):
+                    import sphero_sim
+                    sphero_sim.SimulatorManager.get().apply_layout("default")
             await self.broadcast(self.status())
 
     async def send_line(self, line, flag):
@@ -945,6 +953,15 @@ async def shake(action: dict):
     """Triggers shake on a robot or cell: {"cell": 1-9} or {"robot": "SB-3FF5"}."""
     cell = action.get("cell")
     robot = action.get("robot")
+    if cell is None and robot:
+        match = re.search(r"\d+", str(robot))
+        if match:
+            cell = int(match.group(0))
+        else:
+            for r in runner.robots:
+                if r.get("raw_name") == robot or r.get("name") == robot:
+                    cell = r.get("id")
+                    break
     if cell is not None:
         await runner.send_line(f"tap {int(cell)}\n", "game")
 
@@ -953,7 +970,7 @@ async def shake(action: dict):
             import sphero_sim
             sim = sphero_sim.SimulatorManager.get()
             if robot:
-                sim.get_toy(robot).trigger_shake()
+                sim.get_toy(str(robot)).trigger_shake()
             elif cell is not None:
                 all_toys = list(sim.toys.values())
                 idx = int(cell) - 1
