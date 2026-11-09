@@ -91,6 +91,7 @@ GLYPHS.update({
     "Rock": ["..XXXX..", ".XXXXXX.", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX", ".XXXXXX.", "..XXXX.."],
     "Paper": ["XXXXXX..", "X....XX.", "X.....XX", "X.XXX..X", "X......X", "X.XXXX.X", "X......X", "XXXXXXXX"],
     "Scissors": ["X.....X.", ".X...X..", "..X.X...", "...X....", "..X.X...", "XXX.XXX.", "X.X.X.X.", "XXX.XXX."],
+    "Boom": indicators.BOOM,
 })
 BEATS = {"Rock": "Scissors", "Paper": "Rock", "Scissors": "Paper"}
 
@@ -115,14 +116,16 @@ class Party:
     need = 1            # fewest robots the game works with
 
     def __init__(self, cfg, names, displays):
+        import os
         self.cfg, self.names, self.displays = cfg, names, displays
         self.shown = {r: OFF for r in displays}     # for the web page
         self.labels = {r: "" for r in displays}
         self.status = self.info = ""
         self.phase = "idle"
-        self.speed = str(cfg.get("speed", "normal"))
-        self.layout = str(cfg.get("layout", "3x3"))
-        self.drift = bool(cfg.get("drift", False))
+        self.speed = str(cfg.get("speed", os.environ.get("SPHERO_SPEED", "normal"))).lower()
+        self.layout = str(cfg.get("layout", os.environ.get("SPHERO_LAYOUT", "3x3"))).lower()
+        env_drift = os.environ.get("SPHERO_DRIFT", "").lower() in ("1", "true", "on", "yes")
+        self.drift = bool(cfg.get("drift", env_drift))
         self.drift_stop_at = None
 
     def trigger_drift(self):
@@ -144,8 +147,8 @@ class Party:
                             else:
                                 angle = random.uniform(0, 360)
                             toy.heading = angle
-                            toy.speed = random.uniform(22.0, 32.0)
-                self.drift_stop_at = time.monotonic() + 0.65
+                            toy.speed = random.uniform(26.0, 34.0)
+                self.drift_stop_at = time.monotonic() + 0.70
             except Exception:
                 pass
         else:
@@ -155,7 +158,7 @@ class Party:
                         disp.api.set_stabilization(True)
                         disp.api.set_heading(random.randint(0, 359))
                         disp.api.set_speed(30)
-                self.drift_stop_at = time.monotonic() + 0.65
+                self.drift_stop_at = time.monotonic() + 0.70
             except Exception:
                 pass
 
@@ -184,7 +187,7 @@ class Party:
     def maybe_drift(self, now):
         if not getattr(self, "drift", False):
             return False
-        if getattr(self, "phase", "") not in ("show", "input", "play", "watch"):
+        if getattr(self, "phase", "") not in ("idle", "show", "input", "play", "watch", "pause"):
             return False
         if not hasattr(self, "_next_drift"):
             self._next_drift = now + 1.0
@@ -349,7 +352,7 @@ class Simon(Party):
 
 class Mole(Party):
     id, title, want, need = "mole", "Whack-a-mole", 9, 1
-    ROUND = 60          # s
+    ROUND = int(float(__import__("os").environ.get("MOLE_ROUND", "60")))   # s
     MOLE = GREEN
     IDLE = Color(0, 0, 40)
 
@@ -473,7 +476,8 @@ class Potato(Party):
     def start(self):
         now = time.monotonic()
         self.phase, self.started = "play", now
-        self.fuse = random.uniform(*self.FUSE)
+        env_fuse = __import__("os").environ.get("POTATO_FUSE")
+        self.fuse = float(env_fuse) if env_fuse else random.uniform(*self.FUSE)
         self.on, self.next_at = True, now
         self.rounds += 1
         self.info = f"Round {self.rounds}."
@@ -483,13 +487,18 @@ class Potato(Party):
     def shake(self, r):
         if self.phase == "idle" or (self.phase == "out" and time.monotonic() >= self.ready_at):
             return self.start()
-        return False             # passing it around shakes it: ignored while playing
+        if self.phase == "play":
+            print("  Passed!", flush=True)
+            return True
+        return False
 
     def tick(self, now):
         if self.phase == "play":
             f = (now - self.started) / self.fuse
             if f >= 1:
                 self.phase, self.until, self.on, self.next_at = "boom", now + self.BOOM, True, now
+                for r in self.displays:
+                    self.glyph(r, "Boom", RED, RED, label="BOOM!")
                 self.say("BOOM! Whoever holds the ball is out.")
                 return True
             if now >= self.next_at:
@@ -510,8 +519,8 @@ class Potato(Party):
             if now >= self.next_at:
                 self.on = not self.on
                 for r in self.displays:
-                    self.solid(r, RED if self.on else WHITE)
-                self.next_at = now + 0.12
+                    self.glyph(r, "Boom", RED if self.on else WHITE, RED if self.on else WHITE, label="BOOM!")
+                self.next_at = now + 0.15
                 return True
         return False
 
@@ -565,9 +574,10 @@ class RockPaperScissors(Party):
         if self.phase == "count" and now >= self.next_at:
             if self.step < 3:
                 color = (RED, YELLOW, GREEN)[self.step]
+                num_str = str(3 - self.step)
                 for r in self.players:
-                    self.solid(r, color, label=str(3 - self.step))
-                self.say(f"{3 - self.step}...")
+                    self.glyph(r, num_str, color, color, label=num_str)
+                self.say(f"{num_str}...")
                 self.step += 1
                 self.next_at = now + 0.9
                 return True

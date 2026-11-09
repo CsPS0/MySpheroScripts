@@ -23,10 +23,9 @@ from spherov2.sphero_edu import SpheroEduAPI
 from spherov2.types import Color
 
 # Physics and arena boundaries (cm)
-# Robot circle: 15px radius (30px diameter) at 2.2 px/cm = 13.6 cm visual size.
-# ROBOT_DIAMETER = 14.0 cm ensures zero visual overlap and crisp physical bounce.
-ROBOT_DIAMETER = 14.0
-ROBOT_RADIUS = 7.0
+# Physical Sphero BOLT dimensions: 73 mm diameter (7.3 cm), 36.5 mm radius (3.65 cm).
+ROBOT_DIAMETER = 7.3
+ROBOT_RADIUS = 3.65
 ARENA_MIN_X = -80.0
 ARENA_MAX_X = 98.0
 ARENA_MIN_Y = -30.0
@@ -129,12 +128,24 @@ class SimulatedToy:
         self.sensor_control = SimulatedSensorControl()
         self.drive_control = SimulatedDriveControl(self)
         self._Toy__listeners = collections.defaultdict(list)
+        self._north_listeners = []
         self.collision_detection_enabled = False
         self.last_collision_time = 0.0
 
         self.is_connected = False
         self._api = None
         self._voltage = round(3.90 + (abs(hash(name)) % 25) * 0.01, 2)
+
+    def add_magnetometer_north_yaw_notify_listener(self, listener):
+        self._north_listeners.append(listener)
+
+    def magnetometer_calibrate_to_north(self):
+        self.heading = 0.0
+        for cb in list(self._north_listeners):
+            try:
+                cb(0)
+            except Exception:
+                pass
 
     def configure_collision_detection(self, *args, **kwargs):
         self.collision_detection_enabled = True
@@ -204,6 +215,37 @@ class SimulatedToy:
             for y in range(8):
                 for x in range(8):
                     self.matrix[y][x] = (0, 0, 0)
+
+    def set_matrix_character(self, char: str, color: Color):
+        s = str(char).strip()
+        rows = None
+        if s.isdigit() and len(s) >= 2:
+            try:
+                import indicators
+                rows = indicators.number_bitmap(int(s))
+            except Exception:
+                pass
+        if rows is None:
+            try:
+                from tictactoe import GLYPHS
+                rows = GLYPHS.get(s)
+            except Exception:
+                pass
+        if rows is None:
+            try:
+                import indicators
+                rows = indicators.LETTERS.get(s.upper()) or indicators.EXTRA_GLYPHS.get(s.upper())
+                if rows is None and s.isdigit():
+                    rows = indicators.number_bitmap(int(s))
+            except Exception:
+                pass
+        if rows:
+            with self.matrix_lock:
+                for y in range(8):
+                    for x in range(8):
+                        self.matrix[y][x] = (color.r, color.g, color.b) if rows[y][x] == "X" else (0, 0, 0)
+        else:
+            self.fill(0, 0, 7, 7, color.r, color.g, color.b)
 
     def set_compressed_frame_player_text_scrolling(self, text, r, g, b, fps=10, loop=True):
         self.scroll_cancel.set()
@@ -292,16 +334,7 @@ class SimulatedSpheroEduAPI:
         self.toy.clear_matrix()
 
     def set_matrix_character(self, char: str, color: Color):
-        # Render single character/number (1-9, X, O, H, ?, etc.)
-        from tictactoe import GLYPHS
-        rows = GLYPHS.get(str(char))
-        if rows:
-            with self.toy.matrix_lock:
-                for y in range(8):
-                    for x in range(8):
-                        self.toy.matrix[y][x] = (color.r, color.g, color.b) if rows[y][x] == "X" else (0, 0, 0)
-        else:
-            self.toy.fill(0, 0, 7, 7, color.r, color.g, color.b)
+        self.toy.set_matrix_character(char, color)
 
     def set_speed(self, speed: float):
         self._speed = float(speed)
@@ -385,10 +418,11 @@ class SimulatorManager:
 
     def __init__(self):
         self.toys = {}
+        self.aliases = {}
         for idx, (name, addr, hx, hy, col) in enumerate(DEFAULT_ROBOT_SPECS, start=1):
             toy = SimulatedToy(name, addr, hx, hy, col)
             self.toys[name] = toy
-            self.toys[f"BOLT-{idx}"] = toy
+            self.aliases[f"BOLT-{idx}"] = name
         self.active_toys = set()
         self.lock = threading.RLock()
         self.running = True
@@ -426,7 +460,7 @@ class SimulatorManager:
             # All robots in ONE single horizontal line, left to right by number
             n = count if (count and count > 0) else (len(self.active_toys) if self.active_toys else 9)
             n = max(1, min(15, n))
-            spacing = min(15.0, 130.0 / max(1, n - 1))
+            spacing = min(15.0, 140.0 / max(1, n - 1))
             start_x = - (n - 1) * spacing / 2.0
             coords = [(start_x + i * spacing, 30.0) for i in range(n)]
         elif "roam" in prog:
@@ -496,12 +530,14 @@ class SimulatorManager:
         with self.lock:
             if name_clean in self.toys:
                 toy = self.toys[name_clean]
+            elif name_clean in self.aliases:
+                toy = self.toys[self.aliases[name_clean]]
             elif name_clean.startswith("BOLT-") and name_clean[5:].isdigit():
                 idx = int(name_clean[5:]) - 1
                 if 0 <= idx < len(DEFAULT_ROBOT_SPECS):
                     cname = DEFAULT_ROBOT_SPECS[idx][0]
                     toy = self.toys[cname]
-                    self.toys[name_clean] = toy
+                    self.aliases[name_clean] = cname
                 else:
                     toy = SimulatedToy(name_clean, f"D4:22:CD:00:{abs(hash(name_clean)) % 0xFFFF:04X}")
                     self.toys[name_clean] = toy
@@ -526,7 +562,7 @@ class SimulatorManager:
         return res
 
     def _physics_loop(self):
-        dt = 0.02  # 50 Hz physics for responsive collision response
+        dt = 1.0 / 60.0  # 60 FPS physics loop for responsive collision response
         last_emit = 0.0
 
         min_x = ARENA_MIN_X + ROBOT_RADIUS
@@ -662,10 +698,10 @@ class SimulatorManager:
                 last_emit = now
 
             elapsed = time.monotonic() - t0
-            sleep_time = max(0.002, dt - elapsed)
+            sleep_time = max(0.001, dt - elapsed)
             time.sleep(sleep_time)
 
-    def _emit_telemetry(self):
+    def get_telemetry(self):
         telemetry = {"robots": []}
         with self.lock:
             order_map = {spec[0]: i for i, spec in enumerate(DEFAULT_ROBOT_SPECS)}
@@ -689,9 +725,12 @@ class SimulatorManager:
                     "back_led": hex_color(toy.back_led.r, toy.back_led.g, toy.back_led.b),
                     "matrix": mat_hex,
                 })
+        return telemetry
 
+    def _emit_telemetry(self):
+        telemetry = self.get_telemetry()
         try:
-            if not any("server" in arg.lower() for arg in sys.argv):
+            if not any(k in arg.lower() for arg in sys.argv for k in ("server", "test_suite")):
                 line = "TELEMETRY " + json.dumps(telemetry)
                 print(line, flush=True)
         except Exception:

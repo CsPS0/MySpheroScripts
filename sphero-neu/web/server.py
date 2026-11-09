@@ -607,7 +607,7 @@ class Runner:
     async def send_keys(self):
         """Sends the union of all browsers' pressed keys to the drive program."""
         proc = self.proc
-        if proc is None or not PROGRAMS[self.program].get("pads") or proc.stdin.is_closing():
+        if proc is None or not (PROGRAMS[self.program].get("joystick") or PROGRAMS[self.program].get("pads")) or proc.stdin.is_closing():
             return
         pressed = set().union(*(k for k, _ in self.keys.values())) if self.keys else set()
         turbo = any(t for _, t in self.keys.values())
@@ -693,9 +693,7 @@ def _admin_secret():
 ADMIN_TOKEN = hmac.new(_admin_secret(), ADMIN_PASSWORD.encode(), hashlib.sha256).hexdigest()
 
 
-def is_admin(conn):
-    """conn: Request or WebSocket."""
-    host = conn.client.host if conn.client else ""
+def _get_local_ips():
     local_ips = {"127.0.0.1", "localhost", "::1", "testclient", get_local_ip()}
     try:
         import socket
@@ -703,7 +701,13 @@ def is_admin(conn):
             local_ips.add(ip)
     except Exception:
         pass
-    if host in local_ips:
+    return local_ips
+
+
+def is_admin(conn):
+    """conn: Request or WebSocket."""
+    host = conn.client.host if conn.client else ""
+    if host in _get_local_ips():
         return True
     return hmac.compare_digest(conn.cookies.get(ADMIN_COOKIE, ""), ADMIN_TOKEN)
 
@@ -1131,7 +1135,7 @@ async def set_low_power_endpoint(data: dict):
 @app.get("/api/admin/status")
 async def admin_status(request: Request):
     host = request.client.host if request.client else ""
-    return {"admin": is_admin(request), "local": host in LOCAL_IPS}
+    return {"admin": is_admin(request), "local": host in _get_local_ips()}
 
 
 @app.post("/api/admin/login")
@@ -1197,7 +1201,7 @@ async def websocket(ws: WebSocket):
         "slot": slot_info.get("slot") if slot_info else None,
         "color": slot_info.get("color") if slot_info else None,
         "robot_name": slot_info.get("robot_name") if slot_info else None,
-        "remote_admin": role == "host" and client_ip not in LOCAL_IPS,
+        "remote_admin": role == "host" and client_ip not in _get_local_ips(),
     })
     await ws.send_json({"type": "settings", "auto_map": runner.auto_map_on_connect, "low_spec": runner.low_spec})
     await ws.send_json({"type": "calibration", "offsets": runner.calibration})

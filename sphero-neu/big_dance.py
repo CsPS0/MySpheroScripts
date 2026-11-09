@@ -50,9 +50,11 @@ SCAN_TIME = 6            # s, which robots are free (advertising)
 RAINBOW_TIME = 120       # s
 RUSH_TIME = 60
 CHARS_TIME = 45
+HOME_TIME = 6
 
 _scale = float(__import__("os").environ.get("DANCE_SCALE", "1"))   # testing: 0.05 = 20x shorter
-RAINBOW_TIME, RUSH_TIME, CHARS_TIME = (t * _scale for t in (RAINBOW_TIME, RUSH_TIME, CHARS_TIME))
+RAINBOW_TIME, RUSH_TIME, CHARS_TIME, HOME_TIME = (
+    t * _scale for t in (RAINBOW_TIME, RUSH_TIME, CHARS_TIME, HOME_TIME))
 
 RUSH_SPEED = (45, 75)    # out-and-back dashes: about 40 cm out, so the area stays about 1 m
 DASH_TIME = (0.7, 1.0)   # s per dash direction
@@ -65,7 +67,7 @@ BOOM_COOLDOWN = 3.0      # s between two explosions of one robot
 # command of every robot timed out at once. So: no sensor streaming at all, and
 # all robots together send at most RATE commands per second; after a timeout
 # everyone pauses PAUSE_AFTER_TIMEOUT seconds so the adapter can catch up.
-RATE = 8
+RATE = int(__import__("os").environ.get("DANCE_RATE", "200" if sphero_ble.is_simulation() else "8"))
 PAUSE_AFTER_TIMEOUT = 3.0
 MAX_FAILURES = 8         # failures in a row (with the link still up) before a robot sits out
 CHARS = "ABCDEFGHJKLMNPRSTUVWXYZ0123456789!?+#"
@@ -173,7 +175,11 @@ class Bot:
     def boom(self):
         self.fill(Color(255, 230, 0))          # flash ...
         time.sleep(0.1)
-        self.fill(Color(255, 30, 0))           # ... fire
+        def draw_boom():
+            with _draw_slots:
+                indicators.show_bitmap(self.api, self.toy, indicators.BOOM,
+                                       Color(255, 30, 0), **indicators.UPRIGHT)
+        self.do(draw_boom)                     # ... fire / boom matrix
 
     # --- motion ---------------------------------------------------------
     def drive(self, heading, speed):
@@ -274,6 +280,27 @@ def characters(bot, done, count):
     bot.halt()
 
 
+def return_home(bot, done, count):
+    bot.halt(0)
+    if sphero_ble.is_simulation() and hasattr(bot.toy, "home_x"):
+        steps = 12
+        start_x, start_y = getattr(bot.toy, "x", 0.0), getattr(bot.toy, "y", 0.0)
+        target_x, target_y = bot.toy.home_x, bot.toy.home_y
+        for step in range(1, steps + 1):
+            if done.is_set() or bot.lost:
+                break
+            frac = step / steps
+            bot.toy.x = start_x + (target_x - start_x) * frac
+            bot.toy.y = start_y + (target_y - start_y) * frac
+            done.wait(max(0.02, HOME_TIME / (steps + 2)))
+        bot.toy.x, bot.toy.y = target_x, target_y
+        bot.toy.speed = 0.0
+        bot.toy.heading = 0.0
+    bot.show_number()
+    bot.halt(0)
+    done.wait(HOME_TIME)
+
+
 # --- program ---------------------------------------------------------------
 
 def on_bots(bots, action, timeout=15):
@@ -295,6 +322,10 @@ def main():
             bt = next((k for k, v in cache.items() if v == addr and k.startswith("SB-")), None)
             if bt:
                 pool[int(key[5:])] = bt
+    if not pool and sphero_ble.is_simulation():
+        import sphero_sim
+        for idx, (bt, _, _, _) in enumerate(sphero_sim.DEFAULT_ROBOT_SPECS, start=1):
+            pool[idx] = bt
     if not pool:
         raise SystemExit("No robot pool: start the web server and let it scan first.")
 
@@ -408,7 +439,8 @@ def main():
         for phase, seconds, part, text in (
                 ("rainbow", RAINBOW_TIME, rainbow, "Rainbow wave"),
                 ("rush", RUSH_TIME, rush, "Rush"),
-                ("chars", CHARS_TIME, characters, "Characters")):
+                ("chars", CHARS_TIME, characters, "Characters"),
+                ("home", HOME_TIME, return_home, "Return home")):
             say(f"=== {text} ===")
             state["phase"] = phase
             done = threading.Event()

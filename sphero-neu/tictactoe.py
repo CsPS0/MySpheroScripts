@@ -94,6 +94,7 @@ GLYPHS = {
     "X": ["XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX..", "..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX"],
     "O": ["..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX", "XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX.."],
     "?": ["..XXXX..", ".XX..XX.", ".....XX.", "....XX..", "...XX...", "...XX...", "........", "...XX..."],
+    "Boom": indicators.BOOM,
 }
 
 
@@ -275,10 +276,10 @@ class Game:
         self.displays = displays        # robot -> Display
         self.cell_of = {}
         self.previous = {}              # last complete numbering, for "Same layout"
-        self.recount()
+        self.recount(auto_skip=sphero_ble.is_simulation())
 
     # --- numbering ---------------------------------------------------------
-    def recount(self):
+    def recount(self, auto_skip=False):
         if self.cell_of:
             self.previous = dict(self.cell_of)
         self.phase = "numbering"
@@ -288,7 +289,7 @@ class Game:
             d.glyph(GLYPHS["?"], WAIT_COLOR, self.cfg["rotation"], self.cfg["mirror"])
             d.led(WAIT_COLOR)
         print("Numbering: shake the balls in reading order, top left first.", flush=True)
-        if not self.displays or sphero_ble.is_simulation():
+        if not self.displays or auto_skip:
             self.new()
 
     def number(self, r):
