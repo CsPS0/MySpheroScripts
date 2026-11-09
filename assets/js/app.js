@@ -543,15 +543,15 @@ if ($("sound-toggle")) $("sound-toggle").onclick = () => {
 // 2. 8x8 LED Matrix Font Engine
 // ==========================================
 const GLYPHS = {
-  "1": ["...XX...", "..XXX...", ".XXXX...", "...XX...", "...XX...", "...XX...", "...XX...", ".XXXXXX."],
+  "1": ["...XX...", "..XXX...", "...XX...", "...XX...", "...XX...", "...XX...", "...XX...", ".XXXXXX."],
   "2": ["..XXXX..", ".XX..XX.", ".....XX.", "....XX..", "...XX...", "..XX....", ".XX.....", ".XXXXXX."],
   "3": ["..XXXX..", ".XX..XX.", ".....XX.", "...XXX..", ".....XX.", ".....XX.", ".XX..XX.", "..XXXX.."],
-  "4": ["....XX..", "...XXX..", "..XXXX..", ".XX.XX..", "XX..XX..", "XXXXXXX.", "....XX..", "....XX.."],
-  "5": [".XXXXXX.", ".XX.....", ".XX.....", ".XXXXX..", ".....XX.", ".....XX.", ".XX..XX.", "..XXXX.."],
-  "6": ["..XXXX..", ".XX.....", ".XXXXX..", ".XX..XX.", ".XX..XX.", "..XXXX..", "........", ".XXXXXX."],
-  "7": [".XXXXXX.", ".....XX.", "....XX..", "....XX..", "...XX...", "...XX...", "..XX....", "..XX...."],
+  "4": ["....XX..", "...XXX..", "..XXXX..", ".XX.XX..", "XXXXXXX.", "....XX..", "....XX..", "....XX.."],
+  "5": [".XXXXXX.", ".XX.....", ".XXXXX..", ".....XX.", ".....XX.", ".....XX.", ".XX..XX.", "..XXXX.."],
+  "6": ["..XXXX..", ".XX.....", ".XXXXX..", ".XX..XX.", ".XX..XX.", ".XX..XX.", "..XXXX..", "........"],
+  "7": [".XXXXXX.", ".....XX.", "....XX..", "...XX...", "...XX...", "..XX....", "..XX....", "..XX...."],
   "8": ["..XXXX..", ".XX..XX.", ".XX..XX.", "..XXXX..", ".XX..XX.", ".XX..XX.", ".XX..XX.", "..XXXX.."],
-  "9": ["..XXXX..", ".XX..XX.", ".XX..XX.", "..XXXXX.", ".....XX.", "..XXXX..", "........", ".XXXXXX."],
+  "9": ["..XXXX..", ".XX..XX.", ".XX..XX.", "..XXXXX.", ".....XX.", ".....XX.", "..XXXX..", "........"],
   "X": ["XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX..", "..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX"],
   "O": ["..XXXX..", ".XXXXXX.", "XXX..XXX", "XX....XX", "XX....XX", "XXX..XXX", ".XXXXXX.", "..XXXX.."],
   "?": ["..XXXX..", ".XX..XX.", ".....XX.", "....XX..", "...XX...", "...XX...", "........", "...XX..."],
@@ -1073,7 +1073,7 @@ const ARENA_FPS_INTERVAL = 1000 / 60; // Solid 60 FPS cap for ultra-smooth rende
 
 function resolveRobotCollisions(robots) {
   if (!robots || robots.length < 2) return;
-  const minDist = 15.0; // cm (matches visual diameter: 32px / 2.2 px/cm = 14.5 cm)
+  const minDist = 14.0; // cm (matches visual diameter: 30px / 2.2 px/cm = 13.6 cm)
   const minX = -80.0, maxX = 98.0, minY = -30.0, maxY = 135.0;
 
   for (let iter = 0; iter < 3; iter++) {
@@ -1103,6 +1103,42 @@ function resolveRobotCollisions(robots) {
       a.y = Math.max(minY, Math.min(maxY, a.y));
     }
   }
+}
+
+function getRobotFleetInfo(r, idx) {
+  let id = idx + 1;
+  let rawName = r.name;
+  if (currentRobots && currentRobots.length > 0) {
+    const match = currentRobots.find((cr, i) =>
+      (cr.raw_name && (cr.raw_name === r.name || cr.raw_name === r.raw_name)) ||
+      (cr.name && (cr.name === r.name || cr.name === r.raw_name)) ||
+      (cr.id && cr.id === (idx + 1))
+    );
+    if (match) {
+      id = match.id || (idx + 1);
+      rawName = match.raw_name || match.name || r.name;
+    }
+  }
+  return { id, name: rawName };
+}
+
+let hoveredRobotName = null;
+
+function getCanvasPointerRobot(clientX, clientY) {
+  if (!canvas || !arenaRobots || !arenaRobots.length) return null;
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+  const mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+
+  for (let idx = 0; idx < arenaRobots.length; idx++) {
+    const r = arenaRobots[idx];
+    const p = toCanvasCoords(r.x, r.y);
+    const dist = Math.hypot(mouseX - p.cx, mouseY - p.cy);
+    if (dist <= 22) {
+      return { robot: r, index: idx, p, mouseX, mouseY };
+    }
+  }
+  return null;
 }
 
 function renderArena(timestamp) {
@@ -1209,17 +1245,36 @@ function renderArena(timestamp) {
 
   // 3. Robots
   const nowMs = Date.now();
-  for (const r of arenaRobots) {
+  const isCrowded = arenaRobots.length > 5;
+  let hoveredInfo = null;
+
+  for (let idx = 0; idx < arenaRobots.length; idx++) {
+    const r = arenaRobots[idx];
     const p = toCanvasCoords(r.x, r.y);
     let rx = p.cx, ry = p.cy;
     if (shakeWobble[r.name] && nowMs < shakeWobble[r.name]) {
       rx += (Math.random() - 0.5) * 8;
       ry += (Math.random() - 0.5) * 8;
     }
-    const rad = 16;
+    const rad = 15;
+    const isHovered = (hoveredRobotName === r.name);
+    const info = getRobotFleetInfo(r, idx);
+
+    if (isHovered) {
+      hoveredInfo = { r, rx, ry, rad, info };
+    }
 
     actx.save();
     actx.translate(rx, ry);
+
+    // Glowing locator pulse ring when hovered
+    if (isHovered) {
+      actx.strokeStyle = "#58a6ff";
+      actx.lineWidth = 2.5;
+      actx.beginPath();
+      actx.arc(0, 0, rad + 4, 0, Math.PI * 2);
+      actx.stroke();
+    }
 
     // Front headlight beam
     const headingRad = (r.heading * Math.PI) / 180;
@@ -1254,8 +1309,8 @@ function renderArena(timestamp) {
     actx.fill();
 
     // Rim glow
-    actx.strokeStyle = r.front_led !== "#000000" ? r.front_led : "rgba(100, 150, 255, 0.4)";
-    actx.lineWidth = 1.8;
+    actx.strokeStyle = isHovered ? "#58a6ff" : (r.front_led !== "#000000" ? r.front_led : "rgba(100, 150, 255, 0.4)");
+    actx.lineWidth = isHovered ? 2.2 : 1.8;
     actx.stroke();
 
     // 8x8 LED Matrix - batched for high performance
@@ -1297,34 +1352,59 @@ function renderArena(timestamp) {
 
     actx.restore();
 
-    // Robot Name Tag
-    actx.fillStyle = "#ffffff";
+    // Robot Name / ID Tag
+    actx.fillStyle = isHovered ? "#58a6ff" : "#ffffff";
     actx.font = "bold 10px sans-serif";
     actx.textAlign = "center";
-    actx.fillText(r.name, rx, ry + rad + 12);
+    const stagger = isCrowded && (idx % 2 !== 0);
+    const labelY = ry + rad + (stagger ? 24 : 12);
+    actx.fillText(isCrowded ? `#${info.id} ${r.name}` : r.name, rx, labelY);
 
-    actx.fillStyle = "rgba(255, 255, 255, 0.55)";
-    actx.font = "9px monospace";
-    actx.fillText(`(${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`, rx, ry + rad + 22);
+    if (!isCrowded) {
+      actx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      actx.font = "9px monospace";
+      actx.fillText(`(${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`, rx, labelY + 10);
+    }
+  }
+
+  // 4. Floating Tooltip above Hovered Robot
+  if (hoveredInfo) {
+    const { r, rx, ry, rad, info } = hoveredInfo;
+    const text = `#${info.id} ${r.name} (${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.heading)}°`;
+    actx.font = "bold 11px sans-serif";
+    const textWidth = actx.measureText(text).width;
+    const pillW = textWidth + 18;
+    const pillH = 22;
+    const pillX = Math.max(10, Math.min(w - pillW - 10, rx - pillW / 2));
+    const pillY = Math.max(10, ry - rad - 28);
+
+    actx.fillStyle = "rgba(13, 17, 23, 0.94)";
+    actx.strokeStyle = "#58a6ff";
+    actx.lineWidth = 1.5;
+    actx.beginPath();
+    if (actx.roundRect) {
+      actx.roundRect(pillX, pillY, pillW, pillH, 6);
+    } else {
+      actx.rect(pillX, pillY, pillW, pillH);
+    }
+    actx.fill();
+    actx.stroke();
+
+    actx.fillStyle = "#58a6ff";
+    actx.textAlign = "center";
+    actx.fillText(text, pillX + pillW / 2, pillY + 15);
   }
 }
 
 function handleCanvasPointer(clientX, clientY) {
-  if (!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = (clientX - rect.left) * (canvas.width / rect.width);
-  const mouseY = (clientY - rect.top) * (canvas.height / rect.height);
-
-  for (let idx = 0; idx < arenaRobots.length; idx++) {
-    const r = arenaRobots[idx];
-    const p = toCanvasCoords(r.x, r.y);
-    const dist = Math.hypot(mouseX - p.cx, mouseY - p.cy);
-    if (dist <= 25) {
-      shakeWobble[r.name] = Date.now() + 600;
-      playPop();
-      sendShake(idx + 1, r.name);
-      break;
-    }
+  const hit = getCanvasPointerRobot(clientX, clientY);
+  if (hit) {
+    const { robot, index } = hit;
+    const info = getRobotFleetInfo(robot, index);
+    shakeWobble[robot.name] = Date.now() + 600;
+    playPop();
+    identifyRobot(info.id);
+    sendShake(info.id, robot.name);
   }
 }
 
@@ -1335,6 +1415,35 @@ if (canvas) {
       handleCanvasPointer(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, { passive: true });
+  canvas.addEventListener("mousemove", (e) => {
+    const hit = getCanvasPointerRobot(e.clientX, e.clientY);
+    if (hit) {
+      canvas.style.cursor = "pointer";
+      if (hoveredRobotName !== hit.robot.name) {
+        hoveredRobotName = hit.robot.name;
+        document.querySelectorAll(".bot.hover-target").forEach((el) => el.classList.remove("hover-target"));
+        const info = getRobotFleetInfo(hit.robot, hit.index);
+        const card = document.querySelector(`.bot[data-robot="${info.id}"]`);
+        if (card) {
+          card.classList.add("hover-target");
+          card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        }
+      }
+    } else {
+      canvas.style.cursor = "default";
+      if (hoveredRobotName !== null) {
+        hoveredRobotName = null;
+        document.querySelectorAll(".bot.hover-target").forEach((el) => el.classList.remove("hover-target"));
+      }
+    }
+  });
+  canvas.addEventListener("mouseleave", () => {
+    canvas.style.cursor = "default";
+    if (hoveredRobotName !== null) {
+      hoveredRobotName = null;
+      document.querySelectorAll(".bot.hover-target").forEach((el) => el.classList.remove("hover-target"));
+    }
+  });
   requestAnimationFrame(renderArena);
 }
 
@@ -1492,6 +1601,19 @@ function clientStart(id) {
 // ------------------------------------------
 function runClientDance() {
   initClientRobots(15);
+  // Align all client dance robots in a single horizontal line
+  const n = clientRobots.length;
+  const spacing = Math.min(15.0, 130.0 / Math.max(1, n - 1));
+  const startX = - (n - 1) * spacing / 2.0;
+  clientRobots.forEach((r, idx) => {
+    r.x = startX + idx * spacing;
+    r.y = 30.0;
+    r.homeX = r.x;
+    r.homeY = r.y;
+    r.heading = 0;
+  });
+  updateTelemetry({ robots: clientRobots });
+
   const startTime = Date.now();
   let prevSection = -1;
 
@@ -1517,7 +1639,7 @@ function runClientDance() {
         clientRobots.forEach(r => r.matrix = makeMatrix("Arrow", r.baseColor));
       }
       const progress = Math.min(1, (elapsed - 2.0) / 5.5);
-      clientRobots.forEach(r => { r.y = progress * 30; r.heading = 0; });
+      clientRobots.forEach(r => { r.y = 30.0 + progress * 20.0; r.heading = 0; });
     } else if (elapsed < 14.0) {
       section = 2;
       if (prevSection !== 2) {

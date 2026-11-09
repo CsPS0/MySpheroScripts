@@ -23,10 +23,10 @@ from spherov2.sphero_edu import SpheroEduAPI
 from spherov2.types import Color
 
 # Physics and arena boundaries (cm)
-# Robot circle: 16px radius (32px diameter) at 2.2 px/cm = 14.5 cm visual size.
-# ROBOT_DIAMETER = 15.0 cm ensures zero visual overlap and crisp physical bounce.
-ROBOT_DIAMETER = 15.0
-ROBOT_RADIUS = 7.5
+# Robot circle: 15px radius (30px diameter) at 2.2 px/cm = 13.6 cm visual size.
+# ROBOT_DIAMETER = 14.0 cm ensures zero visual overlap and crisp physical bounce.
+ROBOT_DIAMETER = 14.0
+ROBOT_RADIUS = 7.0
 ARENA_MIN_X = -80.0
 ARENA_MAX_X = 98.0
 ARENA_MIN_Y = -30.0
@@ -397,7 +397,7 @@ class SimulatorManager:
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self.physics_thread.start()
 
-    def apply_layout(self, prog_name):
+    def apply_layout(self, prog_name, count=None):
         prog = (prog_name or "").lower()
         if "tictactoe" in prog or "ttt" in prog:
             # 3x3 grid: 1..3 top, 4..6 middle, 7..9 bottom
@@ -410,8 +410,12 @@ class SimulatorManager:
             # 7 robots in a row left to right (N-E-U-M-A-N-N)
             coords = [(-60.0 + i * 20.0, 25.0) for i in range(7)]
         elif "dance" in prog:
-            # 15 robots in two clean staggered rows
-            coords = [(-70.0 + i * 20.0, 30.0) for i in range(8)] + [(-60.0 + i * 20.0, 5.0) for i in range(7)]
+            # All robots in ONE single horizontal line, left to right by number
+            n = count if (count and count > 0) else (len(self.active_toys) if self.active_toys else 9)
+            n = max(1, min(15, n))
+            spacing = min(15.0, 130.0 / max(1, n - 1))
+            start_x = - (n - 1) * spacing / 2.0
+            coords = [(start_x + i * spacing, 30.0) for i in range(n)]
         elif "roam" in prog:
             # 15 robots distributed across arena (5 cols x 3 rows)
             coords = [(-50.0 + (i % 5) * 25.0, 15.0 + (i // 5) * 35.0) for i in range(15)]
