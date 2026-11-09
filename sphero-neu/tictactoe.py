@@ -59,6 +59,17 @@ SHAKE_WINDOW = 1.0       # ... within this many seconds
 SHAKE_COOLDOWN = 1.5     # s, ignore a robot after it was shaken
 RECOUNT_AFTER = 6.0      # s after a game ends before the numbering starts again
 BLINK = 0.35             # s, blink period of the winning squares
+STREAM_MS = 200          # ms, accelerometer streaming interval (shake detection)
+DRAW_AT_ONCE = 3         # robots drawing their matrix at the same time
+
+# One Bluetooth adapter carries all 9 robots. By default spherov2 streams 9
+# sensors from every BOLT, and redrawing all 9 matrices at once sends about 90
+# commands in a burst: together they corrupted the Bluetooth data (bad
+# checksums, garbled matrices). Only the accelerometer is needed here, and the
+# drawing is spread out.
+UNUSED_SENSORS = ("accel_one", "ambient_light", "attitude", "core_time",
+                  "gyroscope", "locator", "quaternion", "velocity")
+_draw_slots = threading.BoundedSemaphore(DRAW_AT_ONCE)
 
 NUMBER_COLOR = Color(200, 200, 200)
 WAIT_COLOR = Color(255, 160, 0)          # "?" while waiting to be numbered
@@ -102,8 +113,21 @@ def load_config():
 
 def connect_robots(cfg, stack, want=9):
     """Connects up to `want` robots, at most PER_ADAPTER per Bluetooth adapter.
-    Returns a list of (name, api, toy)."""
+    Returns a list of (name, api, toy).
+
+    Each robot gets its own ExitStack, and on exit all robots disconnect at the
+    same time: one after another, 9 robots took longer than the web server's
+    stop grace time, so the program got killed with the robots still connected."""
     robots = []
+    robot_stacks = []
+
+    def disconnect_all():
+        threads = [threading.Thread(target=st.close, daemon=True) for st in robot_stacks]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join(timeout=10)
+    stack.callback(disconnect_all)
     adapters = sphero_ble.list_adapters() or ["default"]
     load = {a: 0 for a in adapters}
     full = set()
@@ -123,11 +147,13 @@ def connect_robots(cfg, stack, want=9):
         if adapter is None:
             return False
         print(f"Robot {len(robots) + 1}: connecting {name}...", flush=True)
+        own = contextlib.ExitStack()
         try:
             toy, api = sphero_ble.connect_toy(
-                name, lambda t: stack.enter_context(SpheroEduAPI(t)),
+                name, lambda t: own.enter_context(SpheroEduAPI(t)),
                 attempts=attempts, adapter=adapter if len(adapters) > 1 and adapter != "default" else None)
             robots.append((name, api, toy))
+            robot_stacks.append(own)
             load[adapter] += 1
             timeouts[adapter] = 0
         except ConnectionError as e:
@@ -198,10 +224,12 @@ class Display:
             try:
                 if led is not None:
                     self.api.set_front_led(led)
-                if glyph is not None and glyph[0] is None:
-                    indicators.fill_all(self.toy, glyph[1])
-                elif glyph is not None:
-                    indicators.show_bitmap(self.api, self.toy, *glyph)
+                if glyph is not None:
+                    with _draw_slots:
+                        if glyph[0] is None:
+                            indicators.fill_all(self.toy, glyph[1])
+                        else:
+                            indicators.show_bitmap(self.api, self.toy, *glyph)
             except Exception as e:
                 print(f"  display: {type(e).__name__}", flush=True)
 
@@ -403,9 +431,25 @@ def main():
         robots = connect_robots(cfg, stack)
 
         stop = threading.Event()
-        for _, api, _ in robots:
-            api.set_stabilization(False)        # no motor work when a ball is lifted
-            api.set_back_led(OFF)
+        ready = []
+        for name, api, toy in robots:
+            try:
+                for attempt in range(2):
+                    try:
+                        api.set_stabilization(False)        # no motor work when a ball is lifted
+                        api.set_back_led(OFF)
+                        if hasattr(toy, "sensor_control"):  # accelerometer only, see UNUSED_SENSORS
+                            toy.sensor_control.disable(*UNUSED_SENSORS)
+                            toy.sensor_control.set_interval(STREAM_MS)
+                        break
+                    except Exception:
+                        if attempt == 1:
+                            raise
+                ready.append((name, api, toy))
+            except Exception as e:
+                print(f"  {name}: not responding ({type(e).__name__}), left out of the game", flush=True)
+        robots = ready
+        print(f"{len(robots)} robots ready.", flush=True)
         names = {r: name for r, (name, _, _) in enumerate(robots)}
         displays = {r: Display(api, toy, stop) for r, (_, api, toy) in enumerate(robots)}
         detectors = {r: ShakeDetector(api) for r, (_, api, _) in enumerate(robots)}
@@ -459,14 +503,26 @@ def main():
         except KeyboardInterrupt:
             pass
         finally:
+            print("Stopping: clearing the robots...", flush=True)
             stop.set()
+            deadline = time.monotonic() + 3
             for d in displays.values():
-                d.thread.join(timeout=3)
-            for _, api, toy in robots:
+                d.thread.join(timeout=max(0.0, deadline - time.monotonic()))
+
+            def reset(api, toy):                # 3 commands: matrix off, LED off, stabilization on
                 with contextlib.suppress(Exception):
-                    indicators.clear(api, toy)
+                    indicators.fill_all(toy, OFF)
+                with contextlib.suppress(Exception):
                     api.set_front_led(OFF)
+                with contextlib.suppress(Exception):
                     api.set_stabilization(True)
+            threads = [threading.Thread(target=reset, args=(api, toy), daemon=True)
+                       for _, api, toy in robots]
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join(timeout=6)
+            print("Disconnecting...", flush=True)
     print("Done.")
 
 

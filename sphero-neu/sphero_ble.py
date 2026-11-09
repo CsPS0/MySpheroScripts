@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -29,6 +30,25 @@ from spherov2 import scanner
 SCAN_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 30.0
 ATTEMPTS = 3
+BOLTS_CACHE_FILE = Path(tempfile.gettempdir()) / "sphero_bolts_cache.json"
+
+
+def load_cached_bolts():
+    if BOLTS_CACHE_FILE.exists():
+        try:
+            import json
+            return json.loads(BOLTS_CACHE_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def save_cached_bolts(data):
+    try:
+        import json
+        BOLTS_CACHE_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
 
 
 def is_simulation():
@@ -77,11 +97,25 @@ def release_stale(prefix="SB-", log=print):
 
 
 def list_adapters():
-    """Bluetooth adapters on this machine, for example ["hci0", "hci1"]."""
-    if not sys.platform.startswith("linux"):
-        return []
-    names = [p.name for p in Path("/sys/class/bluetooth").glob("hci*")]
-    return sorted((n for n in names if re.fullmatch(r"hci\d+", n)), key=lambda n: int(n[3:]))
+    """Bluetooth adapters on this machine, for example ["hci0", "hci1"].
+    On Linux: lists hci* adapters from /sys/class/bluetooth.
+    On Windows/macOS: returns ["default"] because Bleak operates via the system BLE stack.
+    """
+    if sys.platform.startswith("linux"):
+        names = [p.name for p in Path("/sys/class/bluetooth").glob("hci*")]
+        return sorted((n for n in names if re.fullmatch(r"hci\d+", n)), key=lambda n: int(n[3:]))
+    elif sys.platform in ("win32", "darwin"):
+        return ["default"]
+    return []
+
+
+def has_bluetooth_adapter():
+    """Checks whether Bluetooth hardware is present and available."""
+    if sys.platform.startswith("linux"):
+        return bool(list_adapters())
+    elif sys.platform in ("win32", "darwin"):
+        return True
+    return False
 
 
 class BleakAdapter:
@@ -111,13 +145,16 @@ class BleakAdapter:
             raise
 
     async def _connect(self, address):
-        bluez = {"adapter": self.BLUEZ_ADAPTER} if self.BLUEZ_ADAPTER else {}
+        bluez = {"adapter": self.BLUEZ_ADAPTER} if (sys.platform.startswith("linux") and self.BLUEZ_ADAPTER) else {}
+        scanner_kwargs = {"bluez": bluez} if bluez else {}
+        client_kwargs = {"bluez": bluez} if bluez else {}
+
         device = await bleak.BleakScanner.find_device_by_address(
-            address, timeout=SCAN_TIMEOUT, bluez=bluez)
+            address, timeout=SCAN_TIMEOUT, **scanner_kwargs)
         if device is None:
             raise bleak.exc.BleakDeviceNotFoundError(
                 address, f"{address} not seen within {SCAN_TIMEOUT:.0f} s")
-        client = bleak.BleakClient(device, timeout=CONNECT_TIMEOUT, bluez=bluez)
+        client = bleak.BleakClient(device, timeout=CONNECT_TIMEOUT, **client_kwargs)
         await client.connect()
         return client
 
@@ -145,7 +182,7 @@ class BleakAdapter:
 
 def adapter_class(adapter=None):
     """BleakAdapter that connects through Bluetooth adapter `adapter` ("hci1")."""
-    if adapter is None:
+    if adapter is None or adapter in ("default", "system"):
         return BleakAdapter
     return type(f"BleakAdapter_{adapter}", (BleakAdapter,), {"BLUEZ_ADAPTER": adapter})
 
@@ -194,6 +231,19 @@ def find_toy(name=None, timeout=SCAN_TIMEOUT, toy_type=scanner.BOLT, adapter=Non
         import sphero_sim
         sphero_sim.enable_simulation()
         return sphero_sim.SimulatorManager.get().get_toy(name or "BOLT-1")
+
+    # "BOLT-n" means robot n of the web server's pool: the cache maps it to an
+    # address, and the same address to the robot's Bluetooth name (SB-xxxx).
+    cached = load_cached_bolts()
+    if name and not name.upper().startswith("SB-"):
+        addr = cached.get(name.upper())
+        bt_name = next((k for k, v in cached.items() if v == addr and k.startswith("SB-")), None)
+        if bt_name:
+            toys = scanner.find_toys(timeout=timeout, toy_types=[toy_type],
+                                     toy_names=[bt_name], adapter=adapter_class(adapter))
+            if toys:
+                return toys[0]
+            print(f"  {name} ({bt_name}) not seen, using any free BOLT", flush=True)
 
     # If specific Bluetooth name (e.g. SB-3FF5) was requested
     if name and name.upper().startswith("SB-"):
@@ -248,8 +298,10 @@ def connect_toy(name, enter, attempts=ATTEMPTS, log=print, adapter=None):
             log(f"  {name}: failed: {type(e).__name__}: {e}")
             if toy is not None:
                 forget_device(toy.address)
-            # If Bluetooth is not available on this system, auto-switch to simulation!
-            if "Bluetooth" in type(e).__name__ or "Bleak" in type(e).__name__ or attempt == attempts:
+            # Only without any Bluetooth adapter switch to simulation. One robot
+            # that fails must not turn the following robots into fake ones: the
+            # caller gets a ConnectionError and can try another robot.
+            if not list_adapters():
                 log(f"  {name}: No physical connection available. Falling back to SIMULATION.")
                 set_simulation(True)
                 import sphero_sim
