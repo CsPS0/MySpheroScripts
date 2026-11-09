@@ -138,14 +138,14 @@ class Party:
                         if toy:
                             cx, cy = 0.0, 40.0
                             dx, dy = cx - toy.x, cy - toy.y
-                            if math.hypot(dx, dy) > 35.0:
+                            if math.hypot(dx, dy) > 40.0:
                                 base_angle = math.degrees(math.atan2(dx, dy))
-                                angle = (base_angle + (random.random() - 0.5) * 50.0) % 360
+                                angle = (base_angle + (random.random() - 0.5) * 60.0) % 360
                             else:
                                 angle = random.uniform(0, 360)
                             toy.heading = angle
-                            toy.speed = random.uniform(18.0, 26.0)
-                self.drift_stop_at = time.monotonic() + 0.35
+                            toy.speed = random.uniform(22.0, 32.0)
+                self.drift_stop_at = time.monotonic() + 0.65
             except Exception:
                 pass
         else:
@@ -154,8 +154,8 @@ class Party:
                     with contextlib.suppress(Exception):
                         disp.api.set_stabilization(True)
                         disp.api.set_heading(random.randint(0, 359))
-                        disp.api.set_speed(24)
-                self.drift_stop_at = time.monotonic() + 0.35
+                        disp.api.set_speed(30)
+                self.drift_stop_at = time.monotonic() + 0.65
             except Exception:
                 pass
 
@@ -178,6 +178,19 @@ class Party:
                     with contextlib.suppress(Exception):
                         disp.api.set_speed(0)
                         disp.api.set_stabilization(False)
+            return True
+        return False
+
+    def maybe_drift(self, now):
+        if not getattr(self, "drift", False):
+            return False
+        if getattr(self, "phase", "") not in ("show", "input", "play", "watch"):
+            return False
+        if not hasattr(self, "_next_drift"):
+            self._next_drift = now + 1.0
+        if now >= self._next_drift and getattr(self, "drift_stop_at", None) is None:
+            self.trigger_drift()
+            self._next_drift = now + random.uniform(1.8, 2.8)
             return True
         return False
 
@@ -296,6 +309,7 @@ class Simon(Party):
 
     def tick(self, now):
         changed = self.check_drift_stop(now)
+        changed |= self.maybe_drift(now)
         for r, until in list(self.flash.items()):
             if now >= until:
                 del self.flash[r]
@@ -400,6 +414,7 @@ class Mole(Party):
     def tick(self, now):
         if self.phase == "play":
             changed = self.check_drift_stop(now)
+            changed |= self.maybe_drift(now)
             for r, until in list(self.flash.items()):
                 if now >= until:
                     del self.flash[r]

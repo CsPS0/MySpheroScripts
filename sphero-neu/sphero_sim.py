@@ -403,8 +403,9 @@ class SimulatorManager:
                 if arg.lower() in ("simon", "mole", "potato", "rps", "lightshow"):
                     prog = arg.lower()
                     break
+        layout = os.environ.get("SPHERO_LAYOUT", "3x3")
         if prog:
-            self.apply_layout(prog)
+            self.apply_layout(prog, layout=layout)
 
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self.physics_thread.start()
@@ -434,6 +435,8 @@ class SimulatorManager:
         elif "simon" in prog or "mole" in prog:
             n = count if (count and count > 0) else (len(self.active_toys) if self.active_toys else 9)
             n = max(1, min(15, n))
+            with self.lock:
+                self.active_toys.update([spec[0] for spec in DEFAULT_ROBOT_SPECS[:n]])
             if str(layout).lower() == "random":
                 coords = []
                 for idx in range(n):
