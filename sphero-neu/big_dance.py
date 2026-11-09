@@ -334,12 +334,21 @@ def main():
 
     try:
         emit()
-        adapters = sphero_ble.list_adapters() or [None]
+        is_sim = sphero_ble.is_simulation()
+        if is_sim:
+            import sphero_sim
+            sphero_sim.SimulatorManager.get().apply_layout("dance")
+            adapters = ["sim"]
+            max_per_adapter = 100
+        else:
+            adapters = sphero_ble.list_adapters() or ["default"]
+            max_per_adapter = PER_ADAPTER
+
         load = {a: 0 for a in adapters}
         timeouts = {a: 0 for a in adapters}
         full = set()
         for number in plan:
-            adapter = next((a for a in adapters if a not in full and load[a] < PER_ADAPTER), None)
+            adapter = next((a for a in adapters if a not in full and load[a] < max_per_adapter), None)
             if adapter is None:
                 rest = plan[plan.index(number):]
                 say(f"The Bluetooth adapter{'s are' if len(adapters) > 1 else ' is'} full "
@@ -353,7 +362,7 @@ def main():
             try:
                 toy, api = sphero_ble.connect_toy(
                     name, lambda t: own.enter_context(SpheroEduAPI(t)), attempts=1,
-                    adapter=adapter if len(adapters) > 1 else None)
+                    adapter=adapter if (adapter not in ("default", "sim") and len(adapters) > 1) else None)
                 load[adapter] += 1
                 timeouts[adapter] = 0
             except ConnectionError as e:

@@ -65,12 +65,41 @@ def roam(driver, radius, stop):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--radius", type=float, default=RADIUS)
+    parser.add_argument("--robots", type=int, default=15)
     args = parser.parse_args()
     radius = min(30.0, max(15.0, args.radius))
 
+    is_sim = sphero_ble.is_simulation()
+    if is_sim:
+        import sphero_sim
+        sphero_sim.SimulatorManager.get().apply_layout("roam")
+        robots_to_run = [(spec[0], spec[4]) for spec in sphero_sim.DEFAULT_ROBOT_SPECS]
+    else:
+        cache = sphero_ble.load_cached_bolts()
+        pool_items = []
+        for key, addr in cache.items():
+            if key.startswith("BOLT-") and key[5:].isdigit():
+                bt = next((k for k, v in cache.items() if v == addr and k.startswith("SB-")), None)
+                if bt:
+                    pool_items.append((int(key[5:]), bt))
+        pool_items.sort(key=lambda x: x[0])
+        colors = [
+            Color(255, 59, 59), Color(46, 204, 113), Color(52, 152, 219),
+            Color(241, 196, 15), Color(232, 67, 147), Color(0, 206, 201),
+            Color(230, 126, 34), Color(255, 255, 255), Color(155, 89, 182),
+            Color(253, 121, 168), Color(9, 132, 227), Color(0, 184, 148),
+            Color(255, 234, 167), Color(108, 92, 231), Color(214, 48, 49),
+        ]
+        if pool_items:
+            robots_to_run = [(bt, colors[(idx - 1) % len(colors)]) for idx, bt in pool_items]
+        else:
+            robots_to_run = list(bolt_dance.ROBOTS)
+
+    robots_to_run = robots_to_run[:max(1, min(15, args.robots))]
+
     with contextlib.ExitStack() as stack:
         apis, toys = [], []
-        for index, (name, _) in enumerate(bolt_dance.ROBOTS):
+        for index, (name, _) in enumerate(robots_to_run):
             print(f"Connecting robot {index + 1}: {name}...", flush=True)
             try:
                 toy, api = sphero_ble.connect_toy(
@@ -80,21 +109,21 @@ def main():
             toys.append(toy)
             apis.append(api)
 
-        bolt_dance.aim(apis, toys)
+        bolt_dance.aim(apis, toys, [c for _, c in robots_to_run])
 
         tracker = formation.Tracker()
         roam_stop = threading.Event()      # ends roaming
         home_stop = threading.Event()      # ends driving home early
         arrow_stop = threading.Event()     # ends the direction arrows
         drivers = [formation.Driver(api, i, tracker, home_stop) for i, api in enumerate(apis)]
-        arrows = [indicators.NorthArrow(apis[i], toys[i], bolt_dance.ROBOTS[i][1],
+        arrows = [indicators.NorthArrow(apis[i], toys[i], robots_to_run[i][1],
                                         lambda d=d: d._heading or 0, arrow_stop).start()
                   for i, d in enumerate(drivers)]
         threads = [threading.Thread(target=roam, args=(d, radius, roam_stop), daemon=True)
                    for d in drivers]
         for th in threads:
             th.start()
-        print(f"Roaming in a {radius:.0f} cm circle around each start spot. "
+        print(f"Roaming {len(drivers)} robots in a {radius:.0f} cm circle around each start spot. "
               "Stop to bring them home.", flush=True)
 
         try:
@@ -127,7 +156,7 @@ def main():
                     api.stop_roll()
                     indicators.clear(api, toys[i])
                     api.set_front_led(Color(0, 0, 0))
-                print(f"  {bolt_dance.ROBOTS[i][0]}: "
+                print(f"  {robots_to_run[i][0]}: "
                       f"{'home' if results.get(i) else 'not home (time up)'}", flush=True)
     print("Done.")
 

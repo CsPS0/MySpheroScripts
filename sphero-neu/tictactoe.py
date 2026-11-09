@@ -426,6 +426,9 @@ def read_stdin(commands):
 
 
 def main():
+    if sphero_ble.is_simulation():
+        import sphero_sim
+        sphero_sim.SimulatorManager.get().apply_layout("tictactoe")
     cfg = load_config()
     with contextlib.ExitStack() as stack:
         robots = connect_robots(cfg, stack)
@@ -488,6 +491,14 @@ def main():
                 elif cmd and cmd.startswith("play "):
                     with contextlib.suppress(ValueError):
                         changed |= game.play(int(cmd.split()[1]) - 1, "web page")
+                elif cmd and cmd.startswith("tap "):
+                    with contextlib.suppress(ValueError):
+                        c = int(cmd.split()[1]) - 1
+                        if game.phase == "numbering":
+                            if 0 <= c < len(robots):
+                                changed |= game.shake(c)
+                        else:
+                            changed |= game.play(c, "web page")
                 elif cmd and cmd.startswith("config "):
                     with contextlib.suppress(ValueError, KeyError):
                         new = json.loads(cmd[len("config "):])
