@@ -256,6 +256,8 @@ const I18N = {
     admin_modal_title: "Beállítások",
     admin_auto_map_label: "Aréna kiemelése telefon csatlakozásakor",
     admin_auto_map_desc: "Amikor egy telefon beolvassa a QR-kódot, a laptop az Aréna térképre ugrik.",
+    admin_low_power_label: "Kímélő mód (alacsony teljesítményű gépekhez)",
+    admin_low_power_desc: "Csökkenti a grafikai terhelést régebbi laptopokon vagy Raspberry Pi-n (árnyékok kikapcsolása, kímélő képfrissítés).",
     admin_controllers_label: "Telefonos irányítók: max 3",
     slot_1: "1. telefon: piros",
     slot_2: "2. telefon: zöld",
@@ -420,6 +422,8 @@ const I18N = {
     admin_modal_title: "Settings",
     admin_auto_map_label: "Highlight the arena when a phone connects",
     admin_auto_map_desc: "When a phone scans the QR code, the laptop jumps to the Arena map.",
+    admin_low_power_label: "Eco mode (for low-spec hardware)",
+    admin_low_power_desc: "Reduces graphical load on older laptops or Raspberry Pi (disables canvas shadows, limits frame rate).",
     admin_controllers_label: "Phone controllers: max 3",
     slot_1: "Phone 1: red",
     slot_2: "Phone 2: green",
@@ -1046,9 +1050,27 @@ function toCanvasCoords(cmX, cmY) {
   };
 }
 
-function renderArena() {
+let lowPowerMode = (typeof localStorage !== "undefined" && localStorage.getItem("sphero_low_power") === "1");
+let lastArenaFrame = 0;
+const LOW_POWER_FPS_INTERVAL = 1000 / 25; // ~25 FPS in low-power mode
+
+function renderArena(timestamp) {
   if (!canvas || !actx) return;
   requestAnimationFrame(renderArena);
+
+  // Skip completely if canvas is hidden, off-screen or tab in background
+  if (document.hidden || canvas.offsetParent === null) {
+    return;
+  }
+
+  // Cap frame rate on low-spec hardware to save CPU / battery
+  if (lowPowerMode) {
+    if (timestamp && (timestamp - lastArenaFrame < LOW_POWER_FPS_INTERVAL)) {
+      return;
+    }
+    lastArenaFrame = timestamp || performance.now();
+  }
+
   const w = canvas.width, h = canvas.height;
   actx.clearRect(0, 0, w, h);
 
@@ -1106,17 +1128,20 @@ function renderArena() {
   // 2. Motion Trails
   if (showTrails) {
     const now = Date.now() / 1000;
+    const effMaxAge = lowPowerMode ? 2.5 : maxTrailAge;
     for (const [name, pts] of Object.entries(trails)) {
       if (pts.length < 2) continue;
       const robot = arenaRobots.find(r => r.name === name);
       const baseCol = robot && robot.front_led !== "#000000" ? robot.front_led : "#58a6ff";
-      actx.lineWidth = 2.5;
+      actx.lineWidth = lowPowerMode ? 1.5 : 2.5;
       actx.lineCap = "round";
-      for (let i = 1; i < pts.length; i++) {
+      const startIdx = lowPowerMode ? Math.max(1, pts.length - 8) : 1;
+      for (let i = startIdx; i < pts.length; i++) {
         const p1 = toCanvasCoords(pts[i - 1].x, pts[i - 1].y);
         const p2 = toCanvasCoords(pts[i].x, pts[i].y);
         const age = now - pts[i].t;
-        const alpha = Math.max(0.05, 1.0 - age / maxTrailAge);
+        if (age > effMaxAge) continue;
+        const alpha = Math.max(0.05, 1.0 - age / effMaxAge);
         actx.strokeStyle = baseCol.startsWith("#") ? `${baseCol}${Math.floor(alpha * 255).toString(16).padStart(2, "0")}` : baseCol;
         actx.beginPath();
         actx.moveTo(p1.cx, p1.cy);
@@ -1157,12 +1182,14 @@ function renderArena() {
     // Tail light (blue dot at back)
     if (r.back_led && r.back_led !== "#000000") {
       actx.fillStyle = r.back_led;
-      actx.shadowColor = r.back_led;
-      actx.shadowBlur = 10;
+      if (!lowPowerMode) {
+        actx.shadowColor = r.back_led;
+        actx.shadowBlur = 10;
+      }
       actx.beginPath();
       actx.arc(0, rad - 2, 4, 0, Math.PI * 2);
       actx.fill();
-      actx.shadowBlur = 0;
+      if (!lowPowerMode) actx.shadowBlur = 0;
     }
 
     // Outer spherical shell
@@ -1192,14 +1219,16 @@ function renderArena() {
           const colHex = r.matrix[row][col];
           const isLit = colHex && colHex !== "#000000";
           actx.fillStyle = isLit ? colHex : "rgba(255, 255, 255, 0.04)";
-          if (isLit) {
+          if (!lowPowerMode && isLit) {
             actx.shadowColor = colHex;
             actx.shadowBlur = 4;
           }
           actx.beginPath();
           actx.arc(startX + col * dotSpacing, startY + row * dotSpacing, dotSize / 2, 0, Math.PI * 2);
           actx.fill();
-          actx.shadowBlur = 0;
+          if (!lowPowerMode && isLit) {
+            actx.shadowBlur = 0;
+          }
         }
       }
     }
@@ -2973,6 +3002,17 @@ function onToggleAutoMap(checked) {
   }).catch(() => {});
 }
 
+function onToggleLowPower(checked) {
+  lowPowerMode = checked;
+  store.set("sphero_low_power", checked ? "1" : "0");
+  if ($("toggle-low-power")) $("toggle-low-power").checked = checked;
+  fetch("/api/settings/low-power", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: checked }),
+  }).catch(() => {});
+}
+
 // Activity tracker: keeps a phone from timing out while it is being used
 let lastActivityTime = 0;
 function markUserActive() {
@@ -2992,6 +3032,10 @@ function handleWsMessage(e) {
   const msg = JSON.parse(e.data);
   if (msg.type === "status") {
     state = msg;
+    if (typeof msg.low_spec === "boolean" && store.get("sphero_low_power") === null) {
+      lowPowerMode = msg.low_spec;
+      if ($("toggle-low-power")) $("toggle-low-power").checked = lowPowerMode;
+    }
     renderStatus();
   } else if (msg.type === "log") {
     addLine(msg.line);
@@ -3031,6 +3075,10 @@ function handleWsMessage(e) {
     renderCalib();
   } else if (msg.type === "settings") {
     if (typeof msg.auto_map === "boolean" && $("toggle-auto-map")) $("toggle-auto-map").checked = msg.auto_map;
+    if (typeof msg.low_spec === "boolean") {
+      lowPowerMode = msg.low_spec;
+      if ($("toggle-low-power")) $("toggle-low-power").checked = msg.low_spec;
+    }
   } else if (msg.type === "error" && msg.code === "MAX_CLIENTS") {
     suppressReconnect = true;
     showMaxClientsModal();
@@ -3137,6 +3185,7 @@ function refreshAllViews() {
   renderParty();
   renderLetters();
   renderAssignedBanner();
+  if ($("toggle-low-power")) $("toggle-low-power").checked = lowPowerMode;
   if ($("arena-stats")) $("arena-stats").textContent = t("arena_stats", { n: arenaRobots.length });
 }
 

@@ -121,7 +121,12 @@ def status_line(status):
 
 
 def run_window(drivers, keymaps):
-    import pygame
+    try:
+        import pygame
+    except ImportError:
+        print("[!] Pygame is required for standalone desktop window keyboard control.\n"
+              "    Install it with 'pip install pygame-ce' or run with '--stdin' (used by the web dashboard).", file=sys.stderr)
+        return
 
     codes = {
         pygame.K_w: "KeyW", pygame.K_a: "KeyA", pygame.K_s: "KeyS", pygame.K_d: "KeyD",

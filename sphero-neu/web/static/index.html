@@ -320,6 +320,13 @@
           <small class="muted" data-i18n="admin_auto_map_desc">Amikor egy telefon beolvassa a QR-kódot, a laptop az Aréna térképre ugrik.</small>
         </span>
       </label>
+      <label class="switch-row">
+        <input type="checkbox" id="toggle-low-power" onchange="onToggleLowPower(this.checked)">
+        <span>
+          <b data-i18n="admin_low_power_label">Kímélő mód (alacsony teljesítményű gépekhez)</b>
+          <small class="muted" data-i18n="admin_low_power_desc">Csökkenti a grafikai terhelést régebbi laptopokon vagy Raspberry Pi-n (árnyékok kikapcsolása, kímélő képfrissítés).</small>
+        </span>
+      </label>
       <div class="info-box">
         <b data-i18n="admin_controllers_label">Telefonos irányítók: max 3</b>
         <div class="slot-legend">
