@@ -57,10 +57,22 @@ def hex_color(r, g, b):
 
 
 class SimulatedSensorControl:
+    def disable(self, *args, **kwargs):
+        pass
+
+    def enable(self, *args, **kwargs):
+        pass
+
     def disable_all(self):
         pass
 
     def enable_all(self):
+        pass
+
+    def set_interval(self, *args, **kwargs):
+        pass
+
+    def add_sensor_data_listener(self, *args, **kwargs):
         pass
 
 
