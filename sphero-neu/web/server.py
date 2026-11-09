@@ -469,7 +469,7 @@ class Runner:
                 env["SPHERO_PROGRAM"] = program_id
                 with contextlib.suppress(Exception):
                     import sphero_sim
-                    sphero_sim.SimulatorManager.get().apply_layout(program_id)
+                    sphero_sim.SimulatorManager.get().apply_layout(program_id, count=len(self.robots) or 9)
 
             venv_sub = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
             if (ROOT / ".venv" / venv_sub).exists():

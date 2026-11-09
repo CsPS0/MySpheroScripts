@@ -120,10 +120,10 @@ DIGITS = {
     "9": ["XXX", "X.X", "XXX", "..X", "XXX"],
 }
 
-# The BOLT matrix shows bitmaps mirrored, and upright for someone standing
-# behind the robot (blue tail light towards them) needs a half turn. Seen on the
-# real robots: N needed rotation 180 + mirror.
-UPRIGHT = {"rotation": 180, "mirror": True}
+# Digits and bitmaps orientation:
+# With ARROW_TO = "top", matrix row 0 faces forward (heading 0 / north).
+# When standing behind the robot, rotation 0 and mirror False makes digits upright.
+UPRIGHT = {"rotation": 0, "mirror": False}
 
 
 def number_bitmap(number):

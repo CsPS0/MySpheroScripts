@@ -396,6 +396,7 @@ details.collapsible > summary .chip { margin-left: auto; margin-right: 10px; }
 }
 .bot-phone .icon { width: 11px; height: 11px; }
 .bot.assigned { border-color: var(--c); }
+.bot.hover-target { border-color: #58a6ff !important; box-shadow: 0 0 12px rgba(88, 166, 255, 0.55); transform: translateY(-2px); }
 .bot.flash { animation: botflash 0.9s ease-out; }
 @keyframes botflash { 0% { box-shadow: 0 0 0 3px #fff; } 100% { box-shadow: 0 0 0 0 transparent; } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0 0; align-items: center; }

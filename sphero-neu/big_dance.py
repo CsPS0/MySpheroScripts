@@ -337,7 +337,7 @@ def main():
         is_sim = sphero_ble.is_simulation()
         if is_sim:
             import sphero_sim
-            sphero_sim.SimulatorManager.get().apply_layout("dance")
+            sphero_sim.SimulatorManager.get().apply_layout("dance", count=len(plan))
             adapters = ["sim"]
             max_per_adapter = 100
         else:
