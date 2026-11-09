@@ -1,8 +1,8 @@
 {
   "simon": {
-    "speed": "normal",
-    "layout": "3x3",
-    "drift": false
+    "speed": "insane",
+    "layout": "random",
+    "drift": true
   },
   "mole": {
     "speed": "normal",
