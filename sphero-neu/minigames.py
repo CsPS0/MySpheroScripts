@@ -42,6 +42,7 @@ import time
 from spherov2.types import Color
 
 import indicators
+import sphero_ble
 import tictactoe
 from tictactoe import OFF, Display, ShakeDetector
 
