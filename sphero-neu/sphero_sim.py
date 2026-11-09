@@ -7,10 +7,12 @@ so all scripts, choreography, games, and web controls run flawlessly
 without physical robots.
 """
 
+import collections
 import colorsys
 import json
 import math
 import os
+import random
 import re
 import sys
 import threading
@@ -19,6 +21,14 @@ from pathlib import Path
 from spherov2.commands.io import IO
 from spherov2.sphero_edu import SpheroEduAPI
 from spherov2.types import Color
+
+# Physics and arena boundaries (cm)
+ROBOT_DIAMETER = 9.0
+ROBOT_RADIUS = 4.5
+ARENA_MIN_X = -130.0
+ARENA_MAX_X = 130.0
+ARENA_MIN_Y = -35.0
+ARENA_MAX_Y = 175.0
 
 # Standard simulated robots (names, addresses, initial home coordinates in cm)
 # 15 robots distributed across arena (rows of 3, 6, 6) so they never overlap in standby
@@ -42,6 +52,30 @@ DEFAULT_ROBOT_SPECS = [
 
 def hex_color(r, g, b):
     return f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+
+
+class SimulatedSensorControl:
+    def disable_all(self):
+        pass
+
+    def enable_all(self):
+        pass
+
+
+class SimulatedDriveControl:
+    def __init__(self, toy):
+        self.toy = toy
+
+    def roll_start(self, heading, speed):
+        self.toy.heading = float(heading) % 360
+        self.toy.speed = float(speed)
+        self.toy.target_speed = float(speed)
+
+    def roll_stop(self, heading=None):
+        if heading is not None:
+            self.toy.heading = float(heading) % 360
+        self.toy.speed = 0.0
+        self.toy.target_speed = 0.0
 
 
 class SimulatedToy:
@@ -77,9 +111,38 @@ class SimulatedToy:
         self.shaking_until = 0.0
         self.shake_counter = 0
 
+        # Subsystems and collision listeners
+        self.sensor_control = SimulatedSensorControl()
+        self.drive_control = SimulatedDriveControl(self)
+        self._Toy__listeners = collections.defaultdict(list)
+        self.collision_detection_enabled = False
+        self.last_collision_time = 0.0
+
         self.is_connected = False
         self._api = None
         self._voltage = round(3.90 + (abs(hash(name)) % 25) * 0.01, 2)
+
+    def configure_collision_detection(self, *args, **kwargs):
+        self.collision_detection_enabled = True
+
+    def _add_listener(self, key_and_wrapper, callback):
+        key, wrapper = key_and_wrapper
+        self._Toy__listeners[key].append((wrapper, callback))
+
+    def _notify_collision(self):
+        now = time.monotonic()
+        if now - self.last_collision_time < 0.15:
+            return
+        self.last_collision_time = now
+        for key in list(self._Toy__listeners.keys()):
+            for wrapper, callback in list(self._Toy__listeners[key]):
+                try:
+                    wrapper(callback, None)
+                except Exception:
+                    try:
+                        callback()
+                    except Exception:
+                        pass
 
     def wake(self):
         self.is_connected = True
@@ -422,23 +485,104 @@ class SimulatorManager:
         while self.running:
             t0 = time.monotonic()
             with self.lock:
-                for name in list(self.active_toys):
-                    toy = self.toys.get(name)
-                    if not toy:
-                        continue
+                active_list = [self.toys[name] for name in list(self.active_toys) if name in self.toys]
+
+                for toy in active_list:
                     # Update spin
                     if toy.spin_rate != 0:
                         toy.heading = (toy.heading + toy.spin_rate * dt) % 360
 
                     # Update position if rolling
                     if toy.speed > 0:
-                        # 40 speed ~ 25 cm/s => speed * 0.625 cm/s
                         speed_cm_s = toy.speed * 0.625
                         dist = speed_cm_s * dt
                         rad = math.radians(toy.heading)
-                        # heading 0 = North (+y), 90 = East (+x)
                         toy.x += dist * math.sin(rad)
                         toy.y += dist * math.cos(rad)
+
+                    # Arena boundary collision & bounce
+                    bounced = False
+                    if toy.x < ARENA_MIN_X + ROBOT_RADIUS:
+                        toy.x = ARENA_MIN_X + ROBOT_RADIUS
+                        bounced = True
+                    elif toy.x > ARENA_MAX_X - ROBOT_RADIUS:
+                        toy.x = ARENA_MAX_X - ROBOT_RADIUS
+                        bounced = True
+
+                    if toy.y < ARENA_MIN_Y + ROBOT_RADIUS:
+                        toy.y = ARENA_MIN_Y + ROBOT_RADIUS
+                        bounced = True
+                    elif toy.y > ARENA_MAX_Y - ROBOT_RADIUS:
+                        toy.y = ARENA_MAX_Y - ROBOT_RADIUS
+                        bounced = True
+
+                    if bounced and toy.speed > 5:
+                        toy.heading = (toy.heading + 180 + (random.random() - 0.5) * 40) % 360
+                        toy.trigger_shake(0.3)
+                        toy._notify_collision()
+
+                # Robot-robot pairwise collisions (prevent overlapping / hovering)
+                min_dist = ROBOT_DIAMETER
+                for iter_idx in range(2):
+                    for i in range(len(active_list)):
+                        toy_a = active_list[i]
+                        for j in range(i + 1, len(active_list)):
+                            toy_b = active_list[j]
+
+                            dx = toy_b.x - toy_a.x
+                            dy = toy_b.y - toy_a.y
+                            dist = math.hypot(dx, dy)
+
+                            if dist < min_dist:
+                                overlap = min_dist - dist
+                                if dist > 0.001:
+                                    nx = dx / dist
+                                    ny = dy / dist
+                                else:
+                                    angle = (i * 1.33 + j * 0.77)
+                                    nx = math.cos(angle)
+                                    ny = math.sin(angle)
+
+                                # Immediately separate so they cannot hover or overlap
+                                toy_a.x -= nx * overlap * 0.5
+                                toy_a.y -= ny * overlap * 0.5
+                                toy_b.x += nx * overlap * 0.5
+                                toy_b.y += ny * overlap * 0.5
+
+                                if iter_idx == 0:
+                                    va_x = toy_a.speed * 0.625 * math.sin(math.radians(toy_a.heading))
+                                    va_y = toy_a.speed * 0.625 * math.cos(math.radians(toy_a.heading))
+                                    vb_x = toy_b.speed * 0.625 * math.sin(math.radians(toy_b.heading))
+                                    vb_y = toy_b.speed * 0.625 * math.cos(math.radians(toy_b.heading))
+
+                                    v_rel = (vb_x - va_x) * nx + (vb_y - va_y) * ny
+                                    if v_rel < 0:
+                                        # Approaching: elastic collision response
+                                        restitution = 0.85
+                                        impulse = -(1.0 + restitution) * v_rel * 0.5
+                                        va_x -= impulse * nx
+                                        va_y -= impulse * ny
+                                        vb_x += impulse * nx
+                                        vb_y += impulse * ny
+
+                                        sp_a = math.hypot(va_x, va_y) / 0.625
+                                        sp_b = math.hypot(vb_x, vb_y) / 0.625
+                                        if sp_a > 1:
+                                            toy_a.heading = math.degrees(math.atan2(va_x, va_y)) % 360
+                                            toy_a.speed = sp_a
+                                        if sp_b > 1:
+                                            toy_b.heading = math.degrees(math.atan2(vb_x, vb_y)) % 360
+                                            toy_b.speed = sp_b
+                                    else:
+                                        if toy_a.speed > 0:
+                                            toy_a.heading = (math.degrees(math.atan2(-nx, -ny)) + (random.random() - 0.5) * 30) % 360
+                                        if toy_b.speed > 0:
+                                            toy_b.heading = (math.degrees(math.atan2(nx, ny)) + (random.random() - 0.5) * 30) % 360
+
+                                    toy_a.trigger_shake(0.3)
+                                    toy_b.trigger_shake(0.3)
+                                    toy_a._notify_collision()
+                                    toy_b._notify_collision()
 
             # Telemetry broadcast every ~50ms
             now = time.monotonic()
