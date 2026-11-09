@@ -76,7 +76,7 @@ PROGRAMS = {
         "game": True,
     },
     "simon": {
-        "title": "Simon Says",
+        "title": "Memory game",
         "description": "Balls light up in a sequence with musical tones: shake/tap them "
                        "back in the same order. One more step each level.",
         "args": ["minigames.py", "simon"],

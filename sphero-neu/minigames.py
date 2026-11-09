@@ -3,7 +3,7 @@ Stationary party games with BOLTs. The robots never drive.
 
     .venv/bin/python minigames.py simon | mole | potato | rps
 
-simon   Simon Says (2 to 9 balls). Every ball has its own color. The balls
+simon   Memory Game (2 to 9 balls). Every ball has its own color. The balls
         light up in a sequence; shake them back in the same order. The
         sequence grows by one each level. A wrong ball ends the game.
 mole    Whack-a-mole (1 to 9 balls). A random ball turns green; shake it
@@ -124,7 +124,7 @@ class Party:
 
 
 class Simon(Party):
-    id, title, want, need = "simon", "Simon Says", 9, 2
+    id, title, want, need = "simon", "Memory Game", 9, 2
     GAP = 0.25          # s dark between two steps of the sequence
     INPUT_TIMEOUT = 12  # s without a shake ends the game
 
@@ -132,7 +132,7 @@ class Simon(Party):
         super().__init__(*args)
         self.color = {r: PALETTE[r % len(PALETTE)] for r in self.displays}
         self.best, self.seq, self.flash = 0, [], {}
-        self.idle("Simon Says: shake any ball or press Start.")
+        self.idle("Memory Game: shake any ball or press Start.")
 
     def rest(self, r):
         self.solid(r, dim(self.color[r], 0.12), OFF)
