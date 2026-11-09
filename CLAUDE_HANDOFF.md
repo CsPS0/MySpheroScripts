@@ -1,7 +1,7 @@
 # Sphero BOLT Web Dashboard – Handoff
 
 ## 1. Project Context & Environment
-- **Repository Root**: `/home/csps/REPOS/MySpheroScripts`
+- **Repository Root**: Cross-platform (e.g. `d:\Projects\PROJECTS\MySpheroScripts` on Windows, `/home/csps/REPOS/MySpheroScripts` on Linux)
 - **Environment**: Cross-platform (Windows 10/11, macOS Intel & Apple Silicon, Linux with BlueZ, Raspberry Pi OS). Python 3.10+ virtual environment (`sphero-neu/.venv`).
 - **Server Startup**:
   - Linux / macOS: `./start.sh` (or `python3 web/server.py --host 0.0.0.0 --port 8080`)
@@ -83,7 +83,7 @@ Phone 2 → robot 2, green `#2ecc71`; Phone 3 → robot 3, blue `#3498db`), auto
 ./start.sh
 ```
 On boot the server scans for BOLTs (4 s), numbers them nearest first and writes the address cache
-`/tmp/sphero_bolts_cache.json` (`BOLT-n` → address), which the programs use for fast connects.
+`sphero_bolts_cache.json` in the system temporary directory (`tempfile.gettempdir()`, e.g. `/tmp` or `%TEMP%`, mapping `BOLT-n` → address), which the programs use for fast connects.
 
 ### Step 2: Check discovery
 ```bash
@@ -131,7 +131,7 @@ curl -s -X POST http://127.0.0.1:8080/api/stop
 - Seen at 14:40 after over an hour of testing: SB-DBF8 no longer connects (service discovery fails), and two other robots dropped their connection during the compass spin or the hand lock. Probably low batteries or a stuck robot: charge them, or switch the robot off and on.
 - **Per robot** (Shows, Neumann, "Betűk egyenként" rows): *Betű* turns the letter on the matrix by 90°, *Robot* turns that one robot by 15° (`turn`), plus mirror and reset (back to rotation 180, no turn). All apply live.
 
- (fixed 2026-11-05)
+### Tic-tac-toe (fixed 2026-11-05)
 Symptom: all balls purple / glitched. Causes found in the logs, all fixed:
 - `connect_toy` switched to **simulation** as soon as one robot failed, so every robot after it was fake. It now falls back only when there is no Bluetooth adapter; otherwise it raises and tic-tac-toe tries the next spare robot.
 - **Bluetooth overload** with 9 connections on one adapter: spherov2 streams 9 sensors per BOLT, and all 9 matrices were redrawn at once (about 90 commands). This gave bad checksums and garbled matrices. Now only the accelerometer streams (200 ms), and at most 3 robots draw at the same time (`DRAW_AT_ONCE`). `neu.py` turns streaming off.

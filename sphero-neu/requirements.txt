@@ -1,1 +1,9 @@
-requirements-web.txt
+# Robot control
+bleak>=0.22.0
+dbus-fast>=2.20.0; sys_platform == 'linux'
+spherov2==0.12.1
+numpy>=1.24.0
+transforms3d>=0.4.0
+# Web server
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
