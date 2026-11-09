@@ -259,6 +259,31 @@
             <span id="party-status" class="game-status"></span>
             <button id="party-start" class="ghost sm" type="button" data-i18n="party_round">Új kör</button>
           </div>
+          <div id="party-difficulty-controls" class="party-controls-box" hidden>
+            <div class="field-row">
+              <span class="field-label" data-i18n="party_speed">Sebesség</span>
+              <div class="segmented" id="party-speed-seg">
+                <button type="button" class="btn seg sm" data-speed="slow" data-i18n="party_speed_slow">Lassú</button>
+                <button type="button" class="btn seg sm active" data-speed="normal" data-i18n="party_speed_normal">Normál</button>
+                <button type="button" class="btn seg sm" data-speed="fast" data-i18n="party_speed_fast">Gyors</button>
+                <button type="button" class="btn seg sm" data-speed="insane" data-i18n="party_speed_insane">Őrült</button>
+              </div>
+            </div>
+            <div class="field-row">
+              <span class="field-label" data-i18n="party_layout">Elrendezés</span>
+              <div class="segmented" id="party-layout-seg">
+                <button type="button" class="btn seg sm active" data-layout="3x3" data-i18n="party_layout_3x3">3x3 Rács</button>
+                <button type="button" class="btn seg sm" data-layout="random" data-i18n="party_layout_random">Véletlenszerű</button>
+              </div>
+            </div>
+            <div class="field-row">
+              <span class="field-label" data-i18n="party_drift">Finom mozgás</span>
+              <div class="segmented" id="party-drift-seg">
+                <button type="button" class="btn seg sm active" data-drift="off" data-i18n="party_drift_off">Ki</button>
+                <button type="button" class="btn seg sm" data-drift="on" data-i18n="party_drift_on">Be (kóborlás)</button>
+              </div>
+            </div>
+          </div>
           <div id="party-info" class="info-box"></div>
           <div id="balls" class="ball-grid"></div>
         </div>

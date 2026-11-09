@@ -252,6 +252,17 @@ const I18N = {
     ttt_tap: "koppints",
     party_round: "Új kör",
     party_idle: "Nyomd meg az Indítás gombot a kezdéshez.",
+    party_speed: "Sebesség",
+    party_speed_slow: "Lassú",
+    party_speed_normal: "Normál",
+    party_speed_fast: "Gyors",
+    party_speed_insane: "Őrült",
+    party_layout: "Elrendezés",
+    party_layout_3x3: "3x3 Rács",
+    party_layout_random: "Véletlenszerű",
+    party_drift: "Finom mozgás",
+    party_drift_on: "Be (kóborlás)",
+    party_drift_off: "Ki",
 
     fleet_title: "Robotok",
     btn_refresh_pool: "Újrakeresés",
@@ -418,6 +429,17 @@ const I18N = {
     ttt_tap: "tap",
     party_round: "New round",
     party_idle: "Press Start to begin.",
+    party_speed: "Speed",
+    party_speed_slow: "Slow",
+    party_speed_normal: "Normal",
+    party_speed_fast: "Fast",
+    party_speed_insane: "Insane",
+    party_layout: "Layout",
+    party_layout_3x3: "3x3 Grid",
+    party_layout_random: "Random",
+    party_drift: "Gentle drift",
+    party_drift_on: "On (wander)",
+    party_drift_off: "Off",
 
     fleet_title: "Robots",
     btn_refresh_pool: "Rescan",
@@ -493,10 +515,10 @@ const PROGRAM_INFO = {
   potato: { kind: "game", robots: 1,
     hu: ["Forró krumpli", "Add körbe a labdát, mielőtt felrobban! Egyre gyorsabban villog."],
     en: ["Hot potato", "Pass the ball around before it explodes! It blinks faster and faster."] },
-  simon: { kind: "game", robots: 4,
+  simon: { kind: "game", robots: 9,
     hu: ["Memóriajáték", "Jegyezd meg a fények sorrendjét, és ismételd meg. Minden szint egy lépéssel hosszabb."],
     en: ["Memory game", "Remember the order of the lights and repeat it. Each level adds a step."] },
-  mole: { kind: "game", robots: 4,
+  mole: { kind: "game", robots: 9,
     hu: ["Vakondvadászat", "Koppints a zölden világító labdára, mielőtt kialszik! 60 mp."],
     en: ["Whack-a-mole", "Tap the ball that lights up green before it goes dark! 60 s."] },
   rps: { kind: "game", robots: 2,
@@ -807,6 +829,7 @@ function renderProgramLists() {
     if ($("balls")) $("balls").innerHTML = "";
   }
   if ($("party-start")) $("party-start").hidden = state.running !== selectedGame;
+  renderPartySettings();
 
   const driveBtn = $("btn-start-drive");
   if (driveBtn) driveBtn.disabled = state.running === "drive";
@@ -1406,8 +1429,8 @@ function handleCanvasPointer(clientX, clientY) {
     identifyRobot(info.id);
 
     let targetCell = info.id;
-    if (state.running === "tictactoe" && gameState && Array.isArray(gameState.cells)) {
-      const cellIdx = gameState.cells.findIndex((c) => c && (c.robot === robot.name || c.robot === info.name));
+    if ((state.running === "tictactoe" || state.running === "simon" || state.running === "mole") && gameState && Array.isArray(gameState.cells)) {
+      const cellIdx = gameState.cells.findIndex((c) => c && (c.robot === robot.name || c.robot === info.name || c.robot === `BOLT-${info.id}` || c.robot === `BOLT ${info.id}`));
       if (cellIdx >= 0) {
         targetCell = cellIdx + 1;
       }
@@ -1962,13 +1985,110 @@ function startPotatoFuse() {
 // ------------------------------------------
 // Party Game 2: Whack-a-Mole
 // ------------------------------------------
+function getPartyGamePositions(game, count = 9) {
+  const cfg = (partyConfig && partyConfig[game]) || { layout: "3x3" };
+  const n = count;
+  if (cfg.layout === "random") {
+    const coords = [];
+    for (let i = 0; i < n; i++) {
+      let placed = false;
+      for (let attempt = 0; attempt < 120; attempt++) {
+        const rx = Math.round((Math.random() * 100 - 50) * 10) / 10;
+        const ry = Math.round((Math.random() * 58 + 14) * 10) / 10;
+        if (coords.every(c => Math.hypot(rx - c.x, ry - c.y) >= 22)) {
+          coords.push({ x: rx, y: ry });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        coords.push({ x: -45 + (i % 5) * 22, y: 15 + Math.floor(i / 5) * 25 });
+      }
+    }
+    return coords;
+  }
+  // 3x3 layout
+  if (n <= 4) {
+    return [
+      { x: -18, y: 50 }, { x: 18, y: 50 },
+      { x: -18, y: 22 }, { x: 18, y: 22 },
+    ].slice(0, n);
+  }
+  const xs = [-28, 0, 28];
+  const ys = [66, 40, 14];
+  const coords = [];
+  for (const y of ys) {
+    for (const x of xs) {
+      coords.push({ x, y });
+    }
+  }
+  return coords.slice(0, n);
+}
+
+function triggerClientDrift() {
+  const game = selectedGame;
+  const cfg = partyConfig && partyConfig[game];
+  if (!cfg || !cfg.drift || !clientRobots || !clientRobots.length) return;
+  const steps = 12;
+  let step = 0;
+  const deltas = clientRobots.map(r => {
+    let angle = Math.random() * Math.PI * 2;
+    const cx = 0, cy = 40;
+    const dx = cx - r.x, dy = cy - r.y;
+    if (Math.hypot(dx, dy) > 35) {
+      angle = Math.atan2(dx, dy) + (Math.random() - 0.5) * 0.8;
+    }
+    const dist = (5.0 + Math.random() * 5.0) / steps;
+    return {
+      dx: Math.sin(angle) * dist,
+      dy: Math.cos(angle) * dist,
+      heading: Math.round(((angle * 180 / Math.PI) + 360) % 360),
+    };
+  });
+
+  const driftTimer = setInterval(() => {
+    step++;
+    clientRobots.forEach((r, i) => {
+      r.x += deltas[i].dx;
+      r.y += deltas[i].dy;
+      r.heading = deltas[i].heading;
+      r.speed = 18;
+    });
+    resolveRobotCollisions(clientRobots);
+    updateTelemetry({ robots: clientRobots });
+    if (step >= steps) {
+      clearInterval(driftTimer);
+      clientRobots.forEach(r => r.speed = 0);
+      updateTelemetry({ robots: clientRobots });
+    }
+  }, 28);
+}
+
 function runClientMole() {
-  initClientRobots(4);
+  const positions = getPartyGamePositions("mole", 9);
+  clientRobots = positions.map((p, i) => ({
+    name: `BOLT ${i + 1}`,
+    x: p.x,
+    y: p.y,
+    heading: 0,
+    speed: 0,
+    front_led: "#000000",
+    back_led: "#0000ff",
+    matrix: makeSolidMatrix("#000000"),
+    homeX: p.x,
+    homeY: p.y,
+    baseColor: "#111111",
+  }));
+
+  const moleCfg = (partyConfig && partyConfig.mole) || { speed: "normal", layout: "3x3", drift: false };
+
   clientSimState = {
     score: 0,
     activeMole: -1,
     timeLeft: 60,
     moleTimeout: null,
+    moleGapTimeout: null,
+    speed: moleCfg.speed || "normal",
   };
 
   gameState = {
@@ -1985,6 +2105,26 @@ function runClientMole() {
   renderParty();
   addLine("=== Whack-a-Mole Started ===");
 
+  function getMoleSpeedMs(speed, score) {
+    switch (speed) {
+      case "slow": return Math.max(1200, 2400 - score * 40);
+      case "fast": return Math.max(450, 1050 - score * 50);
+      case "insane": return Math.max(250, 600 - score * 30);
+      case "normal":
+      default: return Math.max(600, 1600 - score * 65);
+    }
+  }
+
+  function getMoleGapMs(speed) {
+    switch (speed) {
+      case "slow": return 400;
+      case "fast": return 160;
+      case "insane": return 90;
+      case "normal":
+      default: return 250;
+    }
+  }
+
   function nextMole() {
     if (!state.running || state.running !== "mole") return;
     const moleIdx = Math.floor(Math.random() * clientRobots.length);
@@ -1993,31 +2133,36 @@ function runClientMole() {
     clientRobots.forEach((r, i) => {
       if (i === moleIdx) {
         r.matrix = makeSolidMatrix("#00ff44");
+        r.front_led = "#00ff44";
         gameState.cells[i].color = "#00ff44";
         gameState.cells[i].label = "WHACK!";
       } else {
         r.matrix = makeSolidMatrix("#000000");
+        r.front_led = "#000000";
         gameState.cells[i].color = "#111111";
         gameState.cells[i].label = "";
       }
     });
 
     renderParty();
+    triggerClientDrift();
     updateTelemetry({ robots: clientRobots });
     playPop();
 
-    const speed = Math.max(500, 1500 - clientSimState.score * 65);
+    const speedMs = getMoleSpeedMs(partyConfig.mole.speed, clientSimState.score);
+    const gapMs = getMoleGapMs(partyConfig.mole.speed);
     clientSimState.moleTimeout = setTimeout(() => {
       if (clientSimState.activeMole === moleIdx) {
         clientSimState.activeMole = -1;
         clientRobots[moleIdx].matrix = makeSolidMatrix("#000000");
+        clientRobots[moleIdx].front_led = "#000000";
         gameState.cells[moleIdx].color = "#111111";
         gameState.cells[moleIdx].label = "";
         renderParty();
         updateTelemetry({ robots: clientRobots });
-        setTimeout(nextMole, 250);
+        clientSimState.moleGapTimeout = setTimeout(nextMole, gapMs);
       }
-    }, speed);
+    }, speedMs);
   }
 
   nextMole();
@@ -2027,6 +2172,7 @@ function runClientMole() {
     if (clientSimState.timeLeft <= 0) {
       clearInterval(clientLoopId);
       clearTimeout(clientSimState.moleTimeout);
+      clearTimeout(clientSimState.moleGapTimeout);
       gameState.phase = "over";
       gameState.status = `Game Over! Final Score: ${clientSimState.score}`;
       gameState.info = "Great reflexes! Press Start to play again.";
@@ -2043,15 +2189,26 @@ function runClientMole() {
 // ------------------------------------------
 // Party Game 3: Memory Game
 // ------------------------------------------
-const SIMON_NOTES = [261.6, 329.6, 392.0, 523.2];
-const SIMON_COLORS = ["#ff3b3b", "#2ecc71", "#3498db", "#f1c40f"];
+const SIMON_NOTES = [261.6, 293.7, 329.6, 349.2, 392.0, 440.0, 493.9, 523.2, 587.3];
+const SIMON_COLORS = [
+  "#ff0000", "#00ff00", "#003cff", "#ffc800",
+  "#ff00c8", "#00e6e6", "#ff5a00", "#ffffff",
+  "#8200ff"
+];
+
+function getSimonStepInterval(speed) {
+  switch (speed) {
+    case "slow": return 1050;
+    case "fast": return 450;
+    case "insane": return 260;
+    case "normal":
+    default: return 700;
+  }
+}
 
 function runClientSimon() {
-  const pos = [
-    { x: -15, y: 25 }, { x: 15, y: 25 },
-    { x: -15, y: 5 },  { x: 15, y: 5 },
-  ];
-  clientRobots = pos.map((p, i) => ({
+  const positions = getPartyGamePositions("simon", 9);
+  clientRobots = positions.map((p, i) => ({
     name: `BOLT ${i + 1}`,
     x: p.x,
     y: p.y,
@@ -2066,7 +2223,7 @@ function runClientSimon() {
   }));
 
   clientSimState = {
-    sequence: [Math.floor(Math.random() * 4)],
+    sequence: [Math.floor(Math.random() * clientRobots.length)],
     playerIdx: 0,
     playingSeq: false,
     level: 1,
@@ -2096,6 +2253,7 @@ function playSimonSequence() {
   renderParty();
 
   let step = 0;
+  const stepTime = getSimonStepInterval(partyConfig.simon ? partyConfig.simon.speed : "normal");
   const timer = setInterval(() => {
     if (step >= clientSimState.sequence.length) {
       clearInterval(timer);
@@ -2109,12 +2267,16 @@ function playSimonSequence() {
     }
     const ballIdx = clientSimState.sequence[step];
     flashSimonBall(ballIdx);
+    triggerClientDrift();
     step++;
-  }, 750);
+  }, stepTime);
 }
 
 function flashSimonBall(idx) {
-  playTone(SIMON_NOTES[idx], "triangle", 0.35, 0.25);
+  if (!clientRobots[idx]) return;
+  const speed = partyConfig.simon ? partyConfig.simon.speed : "normal";
+  const flashDur = speed === "insane" ? 140 : speed === "fast" ? 220 : speed === "slow" ? 480 : 350;
+  playTone(SIMON_NOTES[idx] || 440, "triangle", flashDur / 1000, 0.25);
   shakeWobble[clientRobots[idx].name] = Date.now() + 400;
   clientRobots[idx].matrix = makeSolidMatrix("#ffffff");
   updateTelemetry({ robots: clientRobots });
@@ -2123,7 +2285,7 @@ function flashSimonBall(idx) {
       clientRobots[idx].matrix = makeSolidMatrix(SIMON_COLORS[idx]);
       updateTelemetry({ robots: clientRobots });
     }
-  }, 350);
+  }, flashDur);
 }
 
 // ------------------------------------------
@@ -2527,11 +2689,21 @@ for (const [id, action] of [["ttt-new", "new"], ["ttt-recount", "recount"], ["tt
 function renderParty() {
   const g = gameState && gameState.kind === "party" ? gameState : null;
   if (!g) return;
+  if (g.speed && partyConfig[g.game]) partyConfig[g.game].speed = g.speed;
+  if (g.layout && partyConfig[g.game]) partyConfig[g.game].layout = g.layout;
+  if (typeof g.drift === "boolean" && partyConfig[g.game]) partyConfig[g.game].drift = g.drift;
+  renderPartySettings();
+
   if ($("party-status")) $("party-status").textContent = g.status || programTitle(g.game);
   if ($("party-info")) $("party-info").textContent = g.info || "";
 
   const box = $("balls");
   if (!box) return;
+  const isGrid3x3 = (g.game === "simon" || g.game === "mole") &&
+                    ((partyConfig[g.game] && partyConfig[g.game].layout === "3x3") || g.layout === "3x3") &&
+                    g.cells.length === 9;
+  box.classList.toggle("grid-3x3", isGrid3x3);
+
   if (box.childNodes.length !== g.cells.length) {
     box.innerHTML = "";
     g.cells.forEach((_, i) => {
@@ -2560,6 +2732,103 @@ function renderParty() {
   });
 }
 if ($("party-start")) $("party-start").onclick = () => sendGameAction({ action: "start" });
+
+let partyConfig = {
+  simon: { speed: "normal", layout: "3x3", drift: false },
+  mole: { speed: "normal", layout: "3x3", drift: false },
+};
+
+function loadStoredPartyConfig() {
+  try {
+    const raw = localStorage.getItem("sphero_party_config");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.simon) partyConfig.simon = { ...partyConfig.simon, ...parsed.simon };
+      if (parsed.mole) partyConfig.mole = { ...partyConfig.mole, ...parsed.mole };
+    }
+  } catch (e) {}
+}
+
+function saveAndSyncPartyConfig(gameId) {
+  try {
+    localStorage.setItem("sphero_party_config", JSON.stringify(partyConfig));
+  } catch (e) {}
+  if (!clientMode) {
+    fetch("/api/minigames", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game: gameId, config: partyConfig[gameId] }),
+    }).catch(() => {});
+  }
+}
+
+function renderPartySettings() {
+  const box = $("party-difficulty-controls");
+  if (!box) return;
+  const isSupported = ["simon", "mole"].includes(selectedGame);
+  box.hidden = !isSupported;
+  if (!isSupported) return;
+
+  const cfg = partyConfig[selectedGame] || { speed: "normal", layout: "3x3", drift: false };
+  const speedSeg = $("party-speed-seg");
+  if (speedSeg) {
+    speedSeg.querySelectorAll("button").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.speed === cfg.speed);
+    });
+  }
+  const layoutSeg = $("party-layout-seg");
+  if (layoutSeg) {
+    layoutSeg.querySelectorAll("button").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.layout === cfg.layout);
+    });
+  }
+  const driftSeg = $("party-drift-seg");
+  if (driftSeg) {
+    driftSeg.querySelectorAll("button").forEach(btn => {
+      btn.classList.toggle("active", (btn.dataset.drift === "on") === !!cfg.drift);
+    });
+  }
+}
+
+function initPartySettingsControls() {
+  const speedSeg = $("party-speed-seg");
+  if (speedSeg) {
+    speedSeg.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => {
+        if (!["simon", "mole"].includes(selectedGame)) return;
+        partyConfig[selectedGame].speed = btn.dataset.speed;
+        saveAndSyncPartyConfig(selectedGame);
+        renderPartySettings();
+      };
+    });
+  }
+  const layoutSeg = $("party-layout-seg");
+  if (layoutSeg) {
+    layoutSeg.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => {
+        if (!["simon", "mole"].includes(selectedGame)) return;
+        partyConfig[selectedGame].layout = btn.dataset.layout;
+        saveAndSyncPartyConfig(selectedGame);
+        renderPartySettings();
+        if (clientMode && state.running === selectedGame) {
+          if (selectedGame === "simon") runClientSimon();
+          else if (selectedGame === "mole") runClientMole();
+        }
+      };
+    });
+  }
+  const driftSeg = $("party-drift-seg");
+  if (driftSeg) {
+    driftSeg.querySelectorAll("button").forEach(btn => {
+      btn.onclick = () => {
+        if (!["simon", "mole"].includes(selectedGame)) return;
+        partyConfig[selectedGame].drift = btn.dataset.drift === "on";
+        saveAndSyncPartyConfig(selectedGame);
+        renderPartySettings();
+      };
+    });
+  }
+}
 
 // Dance show: robots left out, live phase and the Go / next part button
 let danceCfg = { exclude: [] };
@@ -3276,6 +3545,12 @@ function handleWsMessage(e) {
   } else if (msg.type === "dance") {
     danceCfg = msg.config || { exclude: [] };
     renderDance();
+  } else if (msg.type === "minigames") {
+    if (msg.config) {
+      if (msg.config.simon) partyConfig.simon = { ...partyConfig.simon, ...msg.config.simon };
+      if (msg.config.mole) partyConfig.mole = { ...partyConfig.mole, ...msg.config.mole };
+      renderPartySettings();
+    }
   } else if (msg.type === "calibration") {
     calibOffsets = msg.offsets || {};
     renderCalib();
@@ -3389,12 +3664,15 @@ function refreshAllViews() {
   renderBotSelector();
   renderGame();
   renderParty();
+  renderPartySettings();
   renderLetters();
   renderAssignedBanner();
   if ($("toggle-low-power")) $("toggle-low-power").checked = lowPowerMode;
   if ($("arena-stats")) $("arena-stats").textContent = t("arena_stats", { n: arenaRobots.length });
 }
 
+loadStoredPartyConfig();
+initPartySettingsControls();
 initClientRobots(3);
 setLanguage(currentLang);
 initQRCode();
